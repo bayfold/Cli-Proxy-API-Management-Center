@@ -3,8 +3,14 @@ import { createRoot } from 'react-dom/client';
 import '@/styles/global.scss';
 import { INLINE_LOGO_JPEG } from '@/assets/logoInline';
 import App from './App.tsx';
+import CompanyApp from './features/company/CompanyApp';
 
-document.title = 'CLI Proxy API Management Center';
+const RootApp = import.meta.env.VITE_COMPANY_GATEWAY === 'true' ? CompanyApp : App;
+
+document.title =
+  import.meta.env.VITE_COMPANY_GATEWAY === 'true'
+    ? 'Company Gateway'
+    : 'CLI Proxy API Management Center';
 document.documentElement.setAttribute('translate', 'no');
 document.documentElement.classList.add('notranslate');
 
@@ -22,6 +28,6 @@ if (faviconEl) {
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    <RootApp />
   </StrictMode>
 );

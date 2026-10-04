@@ -1,0 +1,106 @@
+.shell {
+  max-width: 1120px;
+  margin: auto;
+  padding: $spacing-xl;
+}
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $spacing-md;
+  margin-bottom: $spacing-xl;
+  flex-wrap: wrap;
+}
+.brand {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.7px;
+}
+.muted {
+  color: var(--text-secondary);
+  margin: $spacing-sm 0;
+}
+.actions {
+  display: flex;
+  gap: $spacing-sm;
+  align-items: center;
+  flex-wrap: wrap;
+  select {
+    width: auto;
+    min-width: 130px;
+  }
+}
+.navigation {
+  display: flex;
+  gap: $spacing-sm;
+  margin-bottom: $spacing-lg;
+  flex-wrap: wrap;
+}
+.intro {
+  margin-bottom: $spacing-xl;
+  h1 {
+    font-size: 30px;
+    letter-spacing: -1px;
+  }
+}
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  gap: $spacing-lg;
+}
+.stack {
+  display: grid;
+  gap: $spacing-lg;
+}
+.card {
+  display: grid;
+  gap: $spacing-md;
+  min-width: 0;
+  h2 {
+    font-size: 19px;
+    overflow-wrap: anywhere;
+  }
+}
+.provider {
+  color: var(--text-secondary);
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.badge {
+  display: inline-block;
+  border: 1px solid var(--border-color);
+  border-radius: $radius-full;
+  padding: 4px 10px;
+  font-size: 12px;
+}
+.form {
+  display: grid;
+  gap: $spacing-md;
+  max-width: 600px;
+}
+.status {
+  padding: $spacing-md;
+  margin-bottom: $spacing-lg;
+  border: 1px solid var(--border-color);
+  border-radius: $radius-md;
+  overflow-wrap: anywhere;
+}
+.models {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $spacing-sm;
+  margin-top: $spacing-md;
+}
+.login {
+  max-width: 480px;
+  margin: 10vh auto;
+}
+@media (max-width: $breakpoint-mobile) {
+  .shell {
+    padding: $spacing-md;
+  }
+  .intro h1 {
+    font-size: 25px;
+  }
+}
