@@ -96,6 +96,36 @@
   max-width: 480px;
   margin: 10vh auto;
 }
+.filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: $spacing-md;
+  label {
+    display: grid;
+    gap: $spacing-sm;
+  }
+}
+.number {
+  font-size: 30px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.command {
+  max-width: 100%;
+  overflow: auto;
+  padding: $spacing-md;
+  margin: $spacing-md 0;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: $radius-md;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.secret {
+  display: block;
+  overflow-wrap: anywhere;
+  margin: $spacing-md 0;
+}
 @media (max-width: $breakpoint-mobile) {
   .shell {
     padding: $spacing-md;

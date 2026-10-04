@@ -4,6 +4,9 @@ export interface Member {
   models: string[];
   account_management: boolean;
   reauthentication: boolean;
+  operator: boolean;
+  allow_shared: boolean;
+  model_providers: Record<string, string>;
 }
 export interface Account {
   id: string;
@@ -11,7 +14,18 @@ export interface Account {
   label: string;
   shared: boolean;
   revision: number;
-  health: { status: string; disabled: boolean; unavailable: boolean } | null;
+  health: {
+    status: string;
+    disabled: boolean;
+    unavailable: boolean;
+    quota_windows?: {
+      name: string;
+      remaining_percent: number;
+      reset_at: number;
+      observed_at: number;
+      stale: boolean;
+    }[];
+  } | null;
 }
 export interface Accounts {
   accounts: Account[];
@@ -21,6 +35,44 @@ export interface Operation {
   id: string;
   status: string;
   login_url?: string;
+}
+
+export interface AccessKey {
+  id: string;
+  account_id: string;
+  name: string;
+  created_at: number;
+  expires_at: number;
+  revoked_at: number;
+}
+export interface UsageSummary {
+  requests: number;
+  success: number;
+  failed: number;
+  in_flight: number;
+  usage_events: number;
+  input_tokens: number;
+  output_tokens: number;
+  cached_tokens: number;
+  reasoning_tokens: number;
+  total_tokens: number;
+}
+export interface RequestLog {
+  id: string;
+  member: string;
+  key_id: string;
+  account_id: string;
+  model: string;
+  protocol: string;
+  started_at: number;
+  status: number;
+  latency_ms: number;
+}
+export interface UsageFilter {
+  account_id: string;
+  key_id: string;
+  period: '24h' | '7d' | '30d';
+  scope: 'self' | 'team';
 }
 
 export class CompanyError extends Error {
@@ -70,6 +122,39 @@ export class CompanyClient {
   }
   accounts() {
     return this.request<Accounts>('/api/v1/accounts');
+  }
+  keys() {
+    return this.request<{ keys: AccessKey[] }>('/api/v1/access-keys');
+  }
+  createKey(name: string, account_id: string) {
+    return this.request<{ key: AccessKey; token: string }>('/api/v1/access-keys', {
+      method: 'POST',
+      body: JSON.stringify({
+        name,
+        scope: account_id ? 'account' : 'pool',
+        account_id,
+        expires_in_days: 30,
+      }),
+    });
+  }
+  revokeKey(id: string) {
+    return this.request(`/api/v1/access-keys/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+  usage(filter: UsageFilter) {
+    return this.request<{ summary: UsageSummary; retention_days: number }>(
+      `/api/v1/usage?${this.query(filter)}`
+    );
+  }
+  logs(filter: UsageFilter) {
+    return this.request<{ requests: RequestLog[]; retention_days: number }>(
+      `/api/v1/request-logs?${this.query(filter)}`
+    );
+  }
+  private query(filter: UsageFilter) {
+    return new URLSearchParams(Object.entries(filter).filter(([, value]) => !!value)).toString();
   }
   share(account: Account, shared: boolean) {
     return this.request(`/api/v1/accounts/${encodeURIComponent(account.id)}`, {

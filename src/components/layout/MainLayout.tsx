@@ -11,7 +11,7 @@ import {
   type MouseEvent as ReactMouseEvent,
   type SyntheticEvent,
 } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink, useLocation, type Location } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
 import { PageTransition } from '@/components/common/PageTransition';
@@ -93,7 +93,7 @@ type SidebarNavItem = SidebarNavLinkItem | SidebarNavDrawerItem;
 const NAV_TOOLTIP_ID = 'sidebar-nav-tooltip';
 const NAV_TOOLTIP_VIEWPORT_MARGIN = 8;
 
-interface SidebarNavGroup {
+export interface SidebarNavGroup {
   id: string;
   labelKey: string;
   items: SidebarNavItem[];
@@ -306,7 +306,15 @@ const THEME_CARDS: Array<{
   },
 ];
 
-export function MainLayout() {
+export interface CompanyLayout {
+  member: string;
+  navGroups: SidebarNavGroup[];
+  refresh: () => Promise<void>;
+  render: (location: Location) => ReactNode;
+}
+
+export function MainLayout({ company }: { company?: CompanyLayout } = {}) {
+  const companyMode = !!company;
   const { t } = useTranslation();
   const { showNotification } = useNotificationStore();
   const location = useLocation();
@@ -314,7 +322,8 @@ export function MainLayout() {
   const logout = useAuthStore((state) => state.logout);
   const connectionStatus = useAuthStore((state) => state.connectionStatus);
   const apiBase = useAuthStore((state) => state.apiBase);
-  const supportsPlugin = useAuthStore((state) => state.supportsPlugin);
+  const instanceSupportsPlugin = useAuthStore((state) => state.supportsPlugin);
+  const supportsPlugin = !companyMode && instanceSupportsPlugin;
 
   const fetchConfig = useConfigStore((state) => state.fetchConfig);
   const clearCache = useConfigStore((state) => state.clearCache);
@@ -349,8 +358,8 @@ export function MainLayout() {
   const themeMenuRef = useRef<HTMLDivElement | null>(null);
   const headerRef = useRef<HTMLElement | null>(null);
 
-  const fullBrandName = 'CLI Proxy API Management Center';
-  const abbrBrandName = t('title.abbr');
+  const fullBrandName = companyMode ? 'Company Gateway' : 'CLI Proxy API Management Center';
+  const abbrBrandName = companyMode ? 'Company Gateway' : t('title.abbr');
   const isLogsPage = location.pathname.startsWith('/logs');
   const isPluginResourcePage = location.pathname.startsWith('/plugin-pages');
   const showSidebarLabels = !sidebarCollapsed || sidebarOpen;
@@ -479,13 +488,14 @@ export function MainLayout() {
   );
 
   useEffect(() => {
+    if (companyMode) return;
     fetchConfig().catch(() => {
       // Ignore the initial failure; the login flow shows the user-facing prompt.
     });
-  }, [fetchConfig]);
+  }, [fetchConfig, companyMode]);
 
   const loadPluginResources = useCallback(async () => {
-    if (connectionStatus !== 'connected' || !supportsPlugin) {
+    if (companyMode || connectionStatus !== 'connected' || !supportsPlugin) {
       setPluginResources([]);
       return;
     }
@@ -496,11 +506,11 @@ export function MainLayout() {
     } catch {
       setPluginResources([]);
     }
-  }, [connectionStatus, supportsPlugin]);
+  }, [connectionStatus, supportsPlugin, companyMode]);
 
   const loadAuthFilesCount = useCallback(async () => {
     const requestID = ++authFilesCountRequestRef.current;
-    if (connectionStatus !== 'connected') {
+    if (companyMode || connectionStatus !== 'connected') {
       setAuthFilesCount(null);
       return;
     }
@@ -513,7 +523,7 @@ export function MainLayout() {
       if (requestID !== authFilesCountRequestRef.current) return;
       setAuthFilesCount(null);
     }
-  }, [connectionStatus]);
+  }, [connectionStatus, companyMode]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -592,7 +602,7 @@ export function MainLayout() {
     icon: sidebarIcons.quickStart,
   };
 
-  const navGroups: SidebarNavGroup[] = [
+  const navGroups: SidebarNavGroup[] = company?.navGroups ?? [
     {
       id: 'operate',
       labelKey: 'nav_groups.operate',
@@ -739,6 +749,10 @@ export function MainLayout() {
   }, []);
 
   const handleRefreshAll = async () => {
+    if (company) {
+      await company.refresh();
+      return;
+    }
     clearCache();
     const results = await Promise.allSettled([
       fetchConfig(true),
@@ -1131,9 +1145,11 @@ export function MainLayout() {
               </div>
             )}
           </div>
-          <Button variant="ghost" size="sm" onClick={logout} title={t('header.logout')}>
-            {headerIcons.logout}
-          </Button>
+          {!companyMode && (
+            <Button variant="ghost" size="sm" onClick={logout} title={t('header.logout')}>
+              {headerIcons.logout}
+            </Button>
+          )}
         </div>
       </header>
 
@@ -1156,7 +1172,9 @@ export function MainLayout() {
               {showSidebarLabels && (
                 <span className="sidebar-brand-text">
                   <span className="sidebar-brand-title">{abbrBrandName}</span>
-                  <span className="sidebar-brand-subtitle">{t('sidebar.subtitle')}</span>
+                  <span className="sidebar-brand-subtitle">
+                    {company ? company.member : t('sidebar.subtitle')}
+                  </span>
                 </span>
               )}
             </div>
@@ -1203,7 +1221,9 @@ export function MainLayout() {
             }`}
           >
             <PageTransition
-              render={(location) => <MainRoutes location={location} />}
+              render={(location) =>
+                company ? company.render(location) : <MainRoutes location={location} />
+              }
               getRouteOrder={getRouteOrder}
               getTransitionVariant={getTransitionVariant}
               scrollContainerRef={contentRef}
