@@ -249,6 +249,7 @@ export function CompanyKeys({ client, member, accounts, report }: Props) {
         </div>
         {selectedModel ? (
           <>
+            <p className={styles.muted}>{t('company.capacity_hint')}</p>
             <pre className={styles.command}>
               {connectionCommand(provider, window.location.origin, selectedModel)}
             </pre>

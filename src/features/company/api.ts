@@ -1,3 +1,32 @@
+export interface CapacityWindow {
+  id: string;
+  resource: 'included';
+  source?: 'credential' | 'exact_model';
+  duration_seconds?: number;
+  remaining_fraction: number;
+  reset_at?: number;
+  observed_at: number;
+}
+export interface CapacityAccount {
+  id: string;
+  ownership_tier: 'own' | 'shared';
+  priority: number;
+  reason: 'quota_ranked' | 'quota_unknown';
+  freshness: 'fresh' | 'partial' | 'stale' | 'awaiting_observation' | 'unknown';
+  observed_at?: number;
+  headroom?: number;
+  limiting_reset?: number;
+  scoreable: boolean;
+  windows: CapacityWindow[];
+}
+export interface Capacity {
+  member_id: string;
+  provider: string;
+  model: string;
+  mode: 'off' | 'shadow' | 'enabled';
+  advisory: true;
+  accounts: CapacityAccount[];
+}
 export interface Member {
   id: string;
   kind: 'member' | 'ci';
@@ -132,6 +161,9 @@ export class CompanyClient {
   }
   me() {
     return this.request<Member>('/api/v1/me');
+  }
+  capacity(provider: string, model: string) {
+    return this.request<Capacity>(`/api/v1/capacity?${new URLSearchParams({ provider, model })}`);
   }
   accounts() {
     return this.request<Accounts>('/api/v1/accounts');

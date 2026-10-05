@@ -2369,6 +2369,24 @@
     "read_only": "Read-only",
     "retry": "Retry",
     "plugin_resources_title": "Plugin pages",
-    "plugin_resources_admin_only": "Everyone can inspect installed plugin metadata. Running plugin pages is restricted to administrators until those pages have been qualified for member access."
+    "plugin_resources_admin_only": "Everyone can inspect installed plugin metadata. Running plugin pages is restricted to administrators until those pages have been qualified for member access.",
+    "capacity_title": "Наблюдения для маршрутизации",
+    "capacity_hint": "Пассивные данные о квоте подписки для этой модели. Текущие диалоги сохраняют аккаунт; время сброса не гарантирует восстановление.",
+    "capacity_model": "Модель",
+    "capacity_refresh": "Обновить наблюдения",
+    "capacity_unavailable": "Наблюдения недоступны",
+    "capacity_mode_off": "Маршрутизация по квоте выключена",
+    "capacity_mode_shadow": "Маршрутизация по квоте в теневом режиме",
+    "capacity_mode_enabled": "Маршрутизация по квоте включена",
+    "capacity_own": "Ваша подписка",
+    "capacity_shared": "Общая подписка",
+    "capacity_fresh": "Свежие данные",
+    "capacity_partial": "Неполные данные",
+    "capacity_stale": "Устаревшие данные",
+    "capacity_awaiting_observation": "Ожидается новое наблюдение",
+    "capacity_unknown": "Квота неизвестна",
+    "capacity_observed": "Наблюдение: {{time}}",
+    "capacity_reset": "Сброс ограничивающего окна: {{time}}",
+    "capacity_window": "{{window}}: осталось {{percent}}%"
   }
 }

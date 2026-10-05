@@ -2375,6 +2375,24 @@
     "read_only": "Read-only",
     "retry": "Retry",
     "plugin_resources_title": "Plugin pages",
-    "plugin_resources_admin_only": "Everyone can inspect installed plugin metadata. Running plugin pages is restricted to administrators until those pages have been qualified for member access."
+    "plugin_resources_admin_only": "Everyone can inspect installed plugin metadata. Running plugin pages is restricted to administrators until those pages have been qualified for member access.",
+    "capacity_title": "Routing observations",
+    "capacity_hint": "Passive included quota hints for this model. Existing conversations keep their account; reset times do not guarantee recovery.",
+    "capacity_model": "Model",
+    "capacity_refresh": "Refresh observations",
+    "capacity_unavailable": "Observations unavailable",
+    "capacity_mode_off": "Quota routing off",
+    "capacity_mode_shadow": "Quota routing in shadow mode",
+    "capacity_mode_enabled": "Quota routing enabled",
+    "capacity_own": "Your subscription",
+    "capacity_shared": "Shared subscription",
+    "capacity_fresh": "Fresh",
+    "capacity_partial": "Incomplete observation",
+    "capacity_stale": "Stale observation",
+    "capacity_awaiting_observation": "Awaiting a new observation",
+    "capacity_unknown": "Unknown quota",
+    "capacity_observed": "Observed: {{time}}",
+    "capacity_reset": "Limiting reset: {{time}}",
+    "capacity_window": "{{window}}: {{percent}}% remaining"
   }
 }

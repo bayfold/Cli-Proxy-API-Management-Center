@@ -2373,6 +2373,24 @@
     "read_only": "Read-only",
     "retry": "Retry",
     "plugin_resources_title": "Plugin pages",
-    "plugin_resources_admin_only": "Everyone can inspect installed plugin metadata. Running plugin pages is restricted to administrators until those pages have been qualified for member access."
+    "plugin_resources_admin_only": "Everyone can inspect installed plugin metadata. Running plugin pages is restricted to administrators until those pages have been qualified for member access.",
+    "capacity_title": "路由观测",
+    "capacity_hint": "此模型的被动订阅额度提示。现有对话保留其账号；重置时间不保证额度恢复。",
+    "capacity_model": "模型",
+    "capacity_refresh": "刷新观测",
+    "capacity_unavailable": "观测不可用",
+    "capacity_mode_off": "额度路由已关闭",
+    "capacity_mode_shadow": "额度路由处于影子模式",
+    "capacity_mode_enabled": "额度路由已启用",
+    "capacity_own": "您的订阅",
+    "capacity_shared": "共享订阅",
+    "capacity_fresh": "最新",
+    "capacity_partial": "观测不完整",
+    "capacity_stale": "观测已过期",
+    "capacity_awaiting_observation": "等待新的观测",
+    "capacity_unknown": "额度未知",
+    "capacity_observed": "观测时间：{{time}}",
+    "capacity_reset": "限制窗口重置：{{time}}",
+    "capacity_window": "{{window}}：剩余 {{percent}}%"
   }
 }
