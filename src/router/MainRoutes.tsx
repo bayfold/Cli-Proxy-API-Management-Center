@@ -14,6 +14,7 @@ import { LogsPage } from '@/features/logs/LogsPage';
 import { SystemPage } from '@/pages/SystemPage';
 import { useAuthStore } from '@/stores';
 import { CompanyPage } from '@/features/company/CompanyPage';
+import { CompanyCI } from '@/features/company/CompanyCI';
 import { CompanyResources } from '@/features/company/CompanyResources';
 import { COMPANY_MODE } from '@/features/company/mode';
 
@@ -37,6 +38,7 @@ const createMainRoutes = (supportsPlugin: boolean) => [
         { path: '/company-usage', element: <CompanyPage view="usage" /> },
         { path: '/request-logs', element: <CompanyPage view="logs" /> },
         { path: '/company-resources', element: <CompanyResources /> },
+        { path: '/company-ci', element: <CompanyCI /> },
       ]
     : []),
   ...(supportsPlugin

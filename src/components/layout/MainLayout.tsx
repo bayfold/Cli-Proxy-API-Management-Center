@@ -647,6 +647,9 @@ export function MainLayout({ company }: { company?: CompanyLayout } = {}) {
         },
         ...(companyMode
           ? [
+              ...(companyAdmin
+                ? [{ path: '/company-ci', labelKey: 'company.ci_title', icon: sidebarIcons.oauth }]
+                : []),
               {
                 path: '/connect',
                 labelKey: 'company.keys',
