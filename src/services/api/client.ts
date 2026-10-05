@@ -17,6 +17,10 @@ import { computeApiUrl } from '@/utils/connection';
 import { parseApiErrorResponse } from './apiError';
 import { COMPANY_MODE } from '@/features/company/mode';
 
+interface ConnectionRequestConfig extends AxiosRequestConfig {
+  connectionRevision?: number;
+}
+
 class ApiClient {
   private instance: AxiosInstance;
   private apiBase: string = '';
@@ -56,6 +60,24 @@ class ApiClient {
   /** Guards read/modify/write operations across connection changes, including ABA switches. */
   getConnectionRevision(): number {
     return this.connectionRevision;
+  }
+
+  /** Same-origin company identities can change without changing the URL or key. */
+  invalidateConnection(): void {
+    this.connectionRevision += 1;
+  }
+
+  private bindConnection(config?: AxiosRequestConfig): ConnectionRequestConfig {
+    return { ...config, connectionRevision: this.connectionRevision };
+  }
+
+  private assertCurrentConnection(config?: ConnectionRequestConfig): void {
+    if (
+      config?.connectionRevision !== undefined &&
+      config.connectionRevision !== this.connectionRevision
+    ) {
+      throw new DOMException('Connection changed while request was in flight', 'AbortError');
+    }
   }
 
   private readHeader(headers: Record<string, unknown> | undefined, keys: string[]): string | null {
@@ -116,6 +138,7 @@ class ApiClient {
     // 请求拦截器
     this.instance.interceptors.request.use(
       (config) => {
+        this.assertCurrentConnection(config);
         // 设置 baseURL
         config.baseURL = this.apiBase;
 
@@ -134,6 +157,7 @@ class ApiClient {
     // 响应拦截器
     this.instance.interceptors.response.use(
       (response) => {
+        this.assertCurrentConnection(response.config);
         const headers = response.headers as Record<string, string | undefined>;
         const cpaVersion = this.readHeader(headers, CPA_VERSION_HEADER_KEYS);
         const cpaBuildDate = this.readHeader(headers, CPA_BUILD_DATE_HEADER_KEYS);
@@ -166,8 +190,11 @@ class ApiClient {
   /**
    * 错误处理
    */
-  private handleError(error: unknown): ApiError {
+  private handleError(error: unknown): ApiError | DOMException {
+    if (error instanceof DOMException && error.name === 'AbortError') return error;
     if (axios.isAxiosError(error)) {
+      // A stale 401 belongs to the previous identity and must not log out the new one.
+      this.assertCurrentConnection(error.config);
       const responseData: unknown = error.response?.data;
       const parsedError = parseApiErrorResponse(responseData, error.message);
       const apiError = new Error(parsedError.message) as ApiError;
@@ -201,7 +228,7 @@ class ApiClient {
    * GET 请求
    */
   async get<T = unknown>(url: string, config?: AxiosRequestConfig): Promise<T> {
-    const response = await this.instance.get<T>(url, config);
+    const response = await this.instance.get<T>(url, this.bindConnection(config));
     return response.data;
   }
 
@@ -209,7 +236,7 @@ class ApiClient {
    * POST 请求
    */
   async post<T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
-    const response = await this.instance.post<T>(url, data, config);
+    const response = await this.instance.post<T>(url, data, this.bindConnection(config));
     return response.data;
   }
 
@@ -217,7 +244,7 @@ class ApiClient {
    * PUT 请求
    */
   async put<T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
-    const response = await this.instance.put<T>(url, data, config);
+    const response = await this.instance.put<T>(url, data, this.bindConnection(config));
     return response.data;
   }
 
@@ -225,7 +252,7 @@ class ApiClient {
    * PATCH 请求
    */
   async patch<T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
-    const response = await this.instance.patch<T>(url, data, config);
+    const response = await this.instance.patch<T>(url, data, this.bindConnection(config));
     return response.data;
   }
 
@@ -233,7 +260,7 @@ class ApiClient {
    * DELETE 请求
    */
   async delete<T = unknown>(url: string, config?: AxiosRequestConfig): Promise<T> {
-    const response = await this.instance.delete<T>(url, config);
+    const response = await this.instance.delete<T>(url, this.bindConnection(config));
     return response.data;
   }
 
@@ -241,7 +268,7 @@ class ApiClient {
    * 获取原始响应（用于下载等场景）
    */
   async getRaw(url: string, config?: AxiosRequestConfig): Promise<AxiosResponse> {
-    return this.instance.get(url, config);
+    return this.instance.get(url, this.bindConnection(config));
   }
 
   /**
@@ -252,13 +279,17 @@ class ApiClient {
     formData: FormData,
     config?: AxiosRequestConfig
   ): Promise<T> {
-    const response = await this.instance.post<T>(url, formData, {
-      ...config,
-      headers: {
-        ...(config?.headers || {}),
-        'Content-Type': 'multipart/form-data',
-      },
-    });
+    const response = await this.instance.post<T>(
+      url,
+      formData,
+      this.bindConnection({
+        ...config,
+        headers: {
+          ...(config?.headers || {}),
+          'Content-Type': 'multipart/form-data',
+        },
+      })
+    );
     return response.data;
   }
 }

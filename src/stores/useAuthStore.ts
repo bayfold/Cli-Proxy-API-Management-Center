@@ -47,6 +47,7 @@ export const useAuthStore = create<AuthStoreState>()(
       connectionStatus: 'disconnected',
       companyMember: null,
       activateCompanySession: (member) => {
+        apiClient.invalidateConnection();
         for (const key of [STORAGE_KEY_AUTH, 'isLoggedIn', 'managementKey', 'apiBase', 'apiUrl']) {
           obfuscatedStorage.removeItem(key);
         }
@@ -60,6 +61,9 @@ export const useAuthStore = create<AuthStoreState>()(
           apiBase: window.location.origin,
           managementKey: '',
           rememberPassword: false,
+          serverVersion: null,
+          serverBuildDate: null,
+          supportsPlugin: false,
           connectionStatus: 'connected',
         });
       },
@@ -175,6 +179,7 @@ export const useAuthStore = create<AuthStoreState>()(
       // 登出
       logout: () => {
         restoreSessionPromise = null;
+        apiClient.invalidateConnection();
         apiClient.setConfig({ apiBase: '', managementKey: '' });
         useConfigStore.getState().clearCache();
         useModelsStore.getState().clearCache();

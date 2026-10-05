@@ -8,7 +8,7 @@ import { ConfirmationModal } from '@/components/common/ConfirmationModal';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
-import { useAuthStore, useLanguageStore, useThemeStore } from '@/stores';
+import { useAuthStore, useConfigStore, useLanguageStore, useThemeStore } from '@/stores';
 import { CompanyClient, CompanyError } from './api';
 import styles from './CompanyApp.module.scss';
 
@@ -51,9 +51,24 @@ function CompanySession() {
   }, [language, setLanguage]);
 
   const refresh = useCallback(async () => {
-    const identity = await client.me();
-    if (!identity.account_management) throw new CompanyError('member_login_required');
-    activate(identity);
+    setLoading(true);
+    try {
+      const identity = await client.me();
+      if (!identity.account_management) throw new CompanyError('member_login_required');
+      activate(identity);
+      // Discover server capabilities before routing a cold direct plugin URL.
+      await useConfigStore.getState().fetchConfig(true);
+    } catch (failure) {
+      if (
+        failure instanceof CompanyError &&
+        ['unauthorized', 'member_login_required'].includes(failure.code)
+      ) {
+        useAuthStore.getState().logout();
+      }
+      throw failure;
+    } finally {
+      setLoading(false);
+    }
   }, [activate, client]);
 
   useEffect(() => {
@@ -92,5 +107,6 @@ function CompanySession() {
       </div>
     );
   }
-  return <MainLayout company={{ member: member.login || member.id, refresh }} />;
+  const binding = JSON.stringify([member.id, member.admin ?? member.operator, member.capabilities]);
+  return <MainLayout key={binding} company={{ member: member.login || member.id, refresh }} />;
 }

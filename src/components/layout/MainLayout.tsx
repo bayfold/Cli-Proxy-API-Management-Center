@@ -323,6 +323,9 @@ export function MainLayout({ company }: { company?: CompanyLayout } = {}) {
   const connectionStatus = useAuthStore((state) => state.connectionStatus);
   const apiBase = useAuthStore((state) => state.apiBase);
   const instanceSupportsPlugin = useAuthStore((state) => state.supportsPlugin);
+  const companyAdmin = useAuthStore(
+    (state) => !!(state.companyMember?.admin ?? state.companyMember?.operator)
+  );
   const supportsPlugin = instanceSupportsPlugin;
 
   const fetchConfig = useConfigStore((state) => state.fetchConfig);
@@ -494,7 +497,7 @@ export function MainLayout({ company }: { company?: CompanyLayout } = {}) {
   }, [fetchConfig]);
 
   const loadPluginResources = useCallback(async () => {
-    if (connectionStatus !== 'connected' || !supportsPlugin) {
+    if (connectionStatus !== 'connected' || !supportsPlugin || (companyMode && !companyAdmin)) {
       setPluginResources([]);
       return;
     }
@@ -505,7 +508,7 @@ export function MainLayout({ company }: { company?: CompanyLayout } = {}) {
     } catch {
       setPluginResources([]);
     }
-  }, [connectionStatus, supportsPlugin]);
+  }, [connectionStatus, supportsPlugin, companyMode, companyAdmin]);
 
   const loadAuthFilesCount = useCallback(async () => {
     const requestID = ++authFilesCountRequestRef.current;
@@ -772,7 +775,12 @@ export function MainLayout({ company }: { company?: CompanyLayout } = {}) {
 
   const handleRefreshAll = async () => {
     if (company?.refresh) {
-      await company.refresh();
+      try {
+        await company.refresh();
+      } catch {
+        showNotification(t('notification.refresh_failed'), 'error');
+        return;
+      }
     }
     clearCache();
     const results = await Promise.allSettled([

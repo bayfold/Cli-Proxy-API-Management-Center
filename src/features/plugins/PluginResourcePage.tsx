@@ -13,6 +13,7 @@ import {
   resolvePluginAssetURL,
 } from './pluginResources';
 import styles from './PluginResourcePage.module.scss';
+import { useCompanyAccess } from '@/features/company/access';
 
 const hasStatus = (error: unknown, status: number) => isRecord(error) && error.status === status;
 
@@ -30,6 +31,20 @@ const parseMenuIndex = (value = '') => {
 };
 
 export function PluginResourcePage() {
+  const { company, admin } = useCompanyAccess();
+  const { t } = useTranslation();
+  if (company && !admin) {
+    return (
+      <EmptyState
+        title={t('company.plugin_resources_title')}
+        description={t('company.plugin_resources_admin_only')}
+      />
+    );
+  }
+  return <AuthorizedPluginResourcePage />;
+}
+
+function AuthorizedPluginResourcePage() {
   const { t } = useTranslation();
   const params = useParams<{ pluginId: string; menuIndex: string }>();
   const connectionStatus = useAuthStore((state) => state.connectionStatus);

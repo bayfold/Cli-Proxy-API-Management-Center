@@ -67,7 +67,7 @@ export function PluginsPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const connectionStatus = useAuthStore((state) => state.connectionStatus);
-  const { canConfigure } = useCompanyAccess();
+  const { company, admin, canConfigure } = useCompanyAccess();
   const apiBase = useAuthStore((state) => state.apiBase);
   const managementKey = useAuthStore((state) => state.managementKey);
   const clearConfigCache = useConfigStore((state) => state.clearCache);
@@ -490,6 +490,7 @@ export function PluginsPage() {
   return (
     <div className={styles.page}>
       <ReadOnlyNotice />
+      {company && !admin && <p role="note">{t('company.plugin_resources_admin_only')}</p>}
       {/* ── Page Header ── */}
       <div className={styles.pageHeader}>
         <h1 className={styles.title}>{t('plugin_management.title')}</h1>

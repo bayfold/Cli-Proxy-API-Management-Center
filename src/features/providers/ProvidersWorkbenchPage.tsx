@@ -412,6 +412,7 @@ export function ProvidersWorkbenchPage({ fixedBrand }: ProvidersWorkbenchPagePro
 
   return (
     <div className={styles.page}>
+      <ReadOnlyNotice />
       <ProviderHeaderCard
         title={headerTitle}
         totalActive={totalActive}

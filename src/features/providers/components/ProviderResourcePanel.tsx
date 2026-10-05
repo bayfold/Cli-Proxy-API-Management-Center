@@ -200,7 +200,12 @@ export function ProviderResourcePanel({
                 <span>{t('providersPage.sponsor.registerLink')}</span>
               </a>
             ) : (
-              <button type="button" className={styles.emptyActionButton} onClick={onCreate}>
+              <button
+                type="button"
+                className={styles.emptyActionButton}
+                disabled={disableMutations}
+                onClick={onCreate}
+              >
                 <IconPlus size={16} />
                 <span>{t('providersPage.actions.new')}</span>
               </button>

@@ -2393,6 +2393,8 @@
     "shared_subscription": "Shared quota",
     "personal_subscription": "Personal quota",
     "read_only": "Read-only",
-    "retry": "Retry"
+    "retry": "Retry",
+    "plugin_resources_title": "Plugin pages",
+    "plugin_resources_admin_only": "Everyone can inspect installed plugin metadata. Running plugin pages is restricted to administrators until those pages have been qualified for member access."
   }
 }
