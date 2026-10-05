@@ -32,7 +32,7 @@ those rules must be configured and checked separately.
 
 ## Exchange and private configuration
 
-`POST /api/v1/workload-exchanges` is registered to the tailnet-only public listener **before
+`POST /api/v1/workload-exchanges` is registered on the tailnet-only public listener **before
 ordinary authentication and `/api/v1/` dispatch** in `Server.handle`. This is the
 only unauthenticated identity-exchange route, and is unavailable when the new
 configuration is absent. It accepts JSON only, rejects unknown fields/trailing

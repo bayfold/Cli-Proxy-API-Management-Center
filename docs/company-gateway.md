@@ -62,8 +62,8 @@ promises unlimited or automatically restored quota.
 
 ## GitHub Actions identity
 
-[GitHub Actions OIDC specification](ci-oidc.md): design only, not implemented or
-enabled. The first version exchanges a GitHub proof from one reviewed manual
+[GitHub Actions OIDC specification](ci-oidc.md): implemented, with host workload
+configuration required before enabling. The exchange turns a GitHub proof from one reviewed manual
 workflow on an existing tailnet runner for a short CI lease. It uses exact
 immutable repository/workflow claims and reuses gateway model authorization,
 concurrency limits, revocation and stream deadlines. No long-lived gateway
