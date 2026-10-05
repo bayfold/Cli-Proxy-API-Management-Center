@@ -1,9 +1,10 @@
 # GitHub Actions OIDC: one reviewed workflow, one short CI lease
 
-Status: proposed, 5 October 2026. **OIDC is not implemented.** Start with one
-`workflow_dispatch` job on an existing self-hosted tailnet runner, one repository
-and one configured `kind: ci` principal. Add an exchange endpoint and a small
-runner helper; reuse the gateway's existing leases and model authorization.
+Status: implemented, 5 October 2026; **disabled until a workload is configured**.
+The exchange endpoint and `company-gateway-ci` runner helper reuse existing
+leases and model authorization. Start with one `workflow_dispatch` job on an
+existing self-hosted tailnet runner, one repository and one configured `kind: ci`
+principal. A real workflow canary and host trust configuration remain rollout steps.
 
 ## Initial scope
 
@@ -31,7 +32,7 @@ those rules must be configured and checked separately.
 
 ## Exchange and private configuration
 
-Add `POST /api/v1/workload-exchanges` to the tailnet-only public listener **before
+`POST /api/v1/workload-exchanges` is registered to the tailnet-only public listener **before
 ordinary authentication and `/api/v1/` dispatch** in `Server.handle`. This is the
 only unauthenticated identity-exchange route, and is unavailable when the new
 configuration is absent. It accepts JSON only, rejects unknown fields/trailing
@@ -50,7 +51,8 @@ opaque; it is not a new GitHub access token. Reuse the signer, authentication,
 revocation and stream deadline handling. A valid proof can expire before the
 lease; the lease still has its independent hard deadline.
 
-One optional private configuration object describes exactly one workload:
+One optional private configuration object describes exactly one workload.
+Omitting it leaves the exchange route unavailable (`404`):
 
 ```json
 {
@@ -69,13 +71,36 @@ One optional private configuration object describes exactly one workload:
 
 These are illustrative values, not deployment configuration. Validate every
 field, require exactly the initial ref/event, and resolve `principal_id` to an
-enabled configured CI principal with positive global CI capacity. Add `auth_mode: "github_oidc"` to `Member`:
+enabled configured CI principal with positive global CI capacity. Set `auth_mode: "github_oidc"` on the configured member:
 that mode requires `kind: ci`, no `token_sha256`, no `tailscale_login`, no
 operator flag, and the matching workload configuration. Other members retain
-today's validation. Currently `Config.Validate` rejects any credentialless
-principal, so simply adding a rule is insufficient. Use `memberByID` again at
+today's validation. Credentialless principals are accepted only in this mode with the matching
+workload configuration. Use `memberByID` again at
 exchange time and on lease authentication; never create a human principal from
 GitHub claims. Policy changes use the existing service restart flow.
+
+An illustrative member paired with the above workload is:
+
+```json
+{
+  "id": "ci-review",
+  "kind": "ci",
+  "auth_mode": "github_oidc",
+  "models": ["approved-model"],
+  "max_concurrent": 1,
+  "allow_shared": true
+}
+```
+
+The model must already exist in the gateway's model map, and global
+`max_ci_concurrent` must be positive. Keep this configuration in the host's
+existing private config file; do not commit host configuration or credentials.
+Restart through the normal release process after configuring trust. The helper
+binary is included in releases, and can be built separately for the runner:
+
+```sh
+go build -trimpath -o company-gateway-ci ./cmd/company-gateway-ci
+```
 
 ## Verification and replay protection
 
@@ -90,7 +115,7 @@ Require well-typed `exp`, `iat`, `nbf`, `jti` and nonempty `sub`. Reject expirat
 future use/issuance beyond 30 seconds, proofs older than ten minutes and
 lifetimes over twenty minutes. Never accept an already expired proof through a
 skew allowance. Qualify the age/lifetime bounds with a real job before rollout.
-Use a reviewed, pinned `coreos/go-oidc/v3` version, with ordinary issuer,
+The implementation pins `coreos/go-oidc/v3` v3.21.0 and `go-jose/v4` v4.1.4, with ordinary issuer,
 audience and expiry checks enabled plus these stricter checks: its [verifier
 source](https://github.com/coreos/go-oidc/blob/v3/oidc/verify.go) accepts audience
 membership and a five-minute not-before allowance by default.
@@ -110,9 +135,10 @@ freshness, and at most one forced refresh per minute for an unknown key. A
 fresh cached matching key can verify without network I/O; without one, refresh
 failure returns `503` and issues no lease. Limit verification concurrency to
 four and exchange starts to sixty per minute process-wide. These are server
-constants, not an initial configuration surface. The library's [key-set
-source](https://github.com/coreos/go-oidc/blob/v3/oidc/jwks.go) supplies caching
-and concurrent-fetch suppression; enforce the remaining bounds in its adapter.
+constants, not an initial configuration surface. A custom bounded key-set adapter supplies cache freshness, serialized refreshes
+and response limits while go-jose verifies signatures. Fetch failures are also
+throttled to one attempt per minute. A matching fresh key remains usable during
+an outage; stale keys fail closed.
 
 After all checks, atomically consume `(issuer,jti)` until proof expiry **before
 signing**. Use a bounded in-memory map of 4,096 entries, prune expired entries
@@ -126,7 +152,7 @@ and spending caps are outside this first version.
 
 ## Runner helper and workflow
 
-Add a small Go command, `company-gateway-ci run -- <command> [args...]`, built
+The small Go command, `company-gateway-ci run -- <command> [args...]`, is built
 and installed through the repository's normal release process. It reads
 `COMPANY_GATEWAY_URL` and `COMPANY_GATEWAY_AUDIENCE`, obtains the GitHub proof
 using `ACTIONS_ID_TOKEN_REQUEST_URL`/`ACTIONS_ID_TOKEN_REQUEST_TOKEN` with a
@@ -153,7 +179,8 @@ no bootstrap credential is needed. Expiry handles killed/cancelled runners.
 There is no automatic renewal. Reject malformed exchange responses and abort if
 exchange fails; do not fall back to a long-lived credential.
 
-Illustrative workflow, **not executable with today's gateway/helper**:
+Illustrative workflow; configure the host and install the helper/approved command
+on the runner before using it:
 
 ```yaml
 name: agent-review
@@ -177,15 +204,16 @@ jobs:
 
 ## Implementation and acceptance
 
-1. Add configuration validation, bounded verifier/key adapter and consumed-proof
-   map. Reuse the existing lease grant and enabled-principal lookup.
-2. Add the exchange route. Errors are `400 invalid_exchange`, `401
+1. Configuration validation, bounded verifier/key adapter and consumed-proof
+   map reuse the existing lease grant and enabled-principal lookup.
+2. The exchange route returns `400 invalid_exchange`, `401
    invalid_identity_proof`, `403 workload_not_allowed`, `409 proof_already_used`,
    `429 exchange_limited` and `503 identity_verifier_unavailable`. Audit only
    principal, verified repository/run/attempt IDs, lease ID/expiry and outcome;
    never JWTs, headers, tokens or arbitrary claim dumps.
-3. Add the helper and fake end-to-end job fixture. Run required repository
-   checks, then a separately authorized, bounded real workflow canary.
+3. The helper has synthetic HTTPS job tests, including child environment,
+   cancellation and cleanup. Required repository checks precede a separately
+   authorized, bounded real workflow canary.
 
 Automated tests use generated RSA keys, local fake JWKS, fake clocks and private
 temporary state. Cover valid identity; wrong/missing issuer, audience, algorithm,

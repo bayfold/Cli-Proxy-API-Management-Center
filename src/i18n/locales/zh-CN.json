@@ -2400,7 +2400,7 @@
     "resources_hint": "公开源码、连接指南和实现方案。",
     "resources_components": "组件与规范",
     "resources_access": "界面和小组件是 Bayfold 的公开分支。网关访问仍需公司成员身份。",
-    "resources_oidc_status": "仅设计方案：GitHub Actions OIDC 交换尚未启用。首版将使用一个经过审核的工作流、Tailnet 运行器和短期 CI 租约。",
+    "resources_oidc_status": "已实现：GitHub Actions OIDC 需要配置经过审核的工作流和 Tailnet 运行器。任务会获得短期 CI 租约。",
     "resources_read_spec": "阅读规范"
   }
 }

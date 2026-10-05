@@ -2402,7 +2402,7 @@
     "resources_hint": "Public source, connection guidance and implementation plans.",
     "resources_components": "Components and specifications",
     "resources_access": "The UI and widget are public Bayfold forks. Gateway access still requires your company membership.",
-    "resources_oidc_status": "Design only: GitHub Actions OIDC exchange is not enabled. The first version will use one reviewed workflow, a tailnet runner and a short CI lease.",
+    "resources_oidc_status": "Implemented: GitHub Actions OIDC requires a configured, reviewed workflow and a tailnet runner. Jobs receive a short CI lease.",
     "resources_read_spec": "Read the specification"
   }
 }

@@ -2426,7 +2426,7 @@
     "resources_hint": "公開原始碼、連線指南與實作計畫。",
     "resources_components": "元件與規格",
     "resources_access": "介面與小工具是 Bayfold 的公開分支。存取閘道仍需公司成員身分。",
-    "resources_oidc_status": "僅設計規格：GitHub Actions OIDC 交換尚未啟用。首版將使用一個經過審核的工作流程、Tailnet 執行器及短期 CI 租約。",
+    "resources_oidc_status": "已實作：GitHub Actions OIDC 需要設定經過審核的工作流程及 Tailnet 執行器。作業會取得短期 CI 租約。",
     "resources_read_spec": "閱讀規格"
   }
 }
