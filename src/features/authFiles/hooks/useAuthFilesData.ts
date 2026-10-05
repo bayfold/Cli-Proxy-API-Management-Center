@@ -9,6 +9,7 @@ import type { AuthFileItem } from '@/types';
 import { formatFileSize } from '@/utils/format';
 import { MAX_AUTH_FILE_SIZE } from '@/utils/constants';
 import { downloadBlob } from '@/utils/download';
+import { COMPANY_MODE } from '@/features/company/mode';
 import {
   getTypeLabel,
   isProblemAuthFile,
@@ -129,7 +130,7 @@ export function useAuthFilesData(options?: UseAuthFilesDataOptions): UseAuthFile
 
   const selectAllVisible = useCallback((visibleFiles: AuthFileItem[]) => {
     const nextSelected = visibleFiles
-      .filter((file) => !isRuntimeOnlyAuthFile(file))
+      .filter((file) => !isRuntimeOnlyAuthFile(file) && (!COMPANY_MODE || file.canManage === true))
       .map((file) => file.name);
     if (nextSelected.length === 0) return;
     setSelectedFiles((prev) => {
@@ -141,7 +142,7 @@ export function useAuthFilesData(options?: UseAuthFilesDataOptions): UseAuthFile
 
   const invertVisibleSelection = useCallback((visibleFiles: AuthFileItem[]) => {
     const visibleNames = visibleFiles
-      .filter((file) => !isRuntimeOnlyAuthFile(file))
+      .filter((file) => !isRuntimeOnlyAuthFile(file) && (!COMPANY_MODE || file.canManage === true))
       .map((file) => file.name);
     if (visibleNames.length === 0) return;
 
@@ -718,6 +719,7 @@ export function useAuthFilesData(options?: UseAuthFilesDataOptions): UseAuthFile
             : t('auth_files.status_disabled_success', { name }),
           'success'
         );
+        if (COMPANY_MODE) await loadFiles({ background: true });
       } catch (err: unknown) {
         if (revision !== apiClient.getConnectionRevision()) return;
         const errorMessage = err instanceof Error ? err.message : '';
@@ -741,7 +743,7 @@ export function useAuthFilesData(options?: UseAuthFilesDataOptions): UseAuthFile
         }
       }
     },
-    [invalidateInFlightLoads, showNotification, t]
+    [invalidateInFlightLoads, loadFiles, showNotification, t]
   );
 
   const batchSetStatus = useCallback(

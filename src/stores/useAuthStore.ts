@@ -14,9 +14,13 @@ import { useConfigStore } from './useConfigStore';
 import { useModelsStore } from './useModelsStore';
 import { useQuotaStore } from './useQuotaStore';
 import { detectApiBaseFromLocation, normalizeApiBase } from '@/utils/connection';
+import { COMPANY_MODE } from '@/features/company/mode';
+import type { Member } from '@/features/company/api';
 
 interface AuthStoreState extends AuthState {
   connectionStatus: ConnectionStatus;
+  companyMember: Member | null;
+  activateCompanySession: (member: Member) => void;
 
   // 操作
   login: (credentials: LoginCredentials) => Promise<void>;
@@ -41,9 +45,28 @@ export const useAuthStore = create<AuthStoreState>()(
       serverBuildDate: null,
       supportsPlugin: false,
       connectionStatus: 'disconnected',
+      companyMember: null,
+      activateCompanySession: (member) => {
+        for (const key of [STORAGE_KEY_AUTH, 'isLoggedIn', 'managementKey', 'apiBase', 'apiUrl']) {
+          obfuscatedStorage.removeItem(key);
+        }
+        apiClient.setConfig({ apiBase: window.location.origin, managementKey: '' });
+        useConfigStore.getState().clearCache();
+        useModelsStore.getState().clearCache();
+        useQuotaStore.getState().clearQuotaCache();
+        set({
+          companyMember: member,
+          isAuthenticated: true,
+          apiBase: window.location.origin,
+          managementKey: '',
+          rememberPassword: false,
+          connectionStatus: 'connected',
+        });
+      },
 
       // 恢复会话并自动登录
       restoreSession: () => {
+        if (COMPANY_MODE) return Promise.resolve(false);
         if (restoreSessionPromise) return restoreSessionPromise;
 
         restoreSessionPromise = (async () => {
@@ -92,6 +115,7 @@ export const useAuthStore = create<AuthStoreState>()(
 
       // 登录
       login: async (credentials) => {
+        if (COMPANY_MODE) throw new Error('Company login requires a trusted Tailscale identity');
         const apiBase = normalizeApiBase(credentials.apiBase);
         const managementKey = credentials.managementKey.trim();
         const rememberPassword = credentials.rememberPassword ?? get().rememberPassword ?? false;
@@ -156,6 +180,7 @@ export const useAuthStore = create<AuthStoreState>()(
         useModelsStore.getState().clearCache();
         useQuotaStore.getState().clearQuotaCache();
         set({
+          companyMember: null,
           isAuthenticated: false,
           apiBase: '',
           managementKey: '',
@@ -169,6 +194,7 @@ export const useAuthStore = create<AuthStoreState>()(
 
       // 检查认证状态
       checkAuth: async () => {
+        if (COMPANY_MODE) return get().companyMember !== null;
         const { managementKey, apiBase } = get();
 
         if (!managementKey || !apiBase) {
@@ -215,23 +241,28 @@ export const useAuthStore = create<AuthStoreState>()(
       name: STORAGE_KEY_AUTH,
       storage: createJSONStorage(() => ({
         getItem: (name) => {
+          if (COMPANY_MODE) return null;
           const data = obfuscatedStorage.getItem<AuthStoreState>(name);
           return data ? JSON.stringify(data) : null;
         },
         setItem: (name, value) => {
+          if (COMPANY_MODE) return;
           obfuscatedStorage.setItem(name, JSON.parse(value));
         },
         removeItem: (name) => {
           obfuscatedStorage.removeItem(name);
         },
       })),
-      partialize: (state) => ({
-        apiBase: state.apiBase,
-        ...(state.rememberPassword ? { managementKey: state.managementKey } : {}),
-        rememberPassword: state.rememberPassword,
-        serverVersion: state.serverVersion,
-        serverBuildDate: state.serverBuildDate,
-      }),
+      partialize: (state) =>
+        COMPANY_MODE
+          ? {}
+          : {
+              apiBase: state.apiBase,
+              ...(state.rememberPassword ? { managementKey: state.managementKey } : {}),
+              rememberPassword: state.rememberPassword,
+              serverVersion: state.serverVersion,
+              serverBuildDate: state.serverBuildDate,
+            },
     }
   )
 );

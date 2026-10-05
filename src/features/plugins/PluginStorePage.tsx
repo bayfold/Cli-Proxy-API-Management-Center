@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useCompanyAccess } from '@/features/company/access';
+import { ReadOnlyNotice } from '@/features/company/ReadOnlyNotice';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -463,6 +465,7 @@ export function PluginStorePage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const connectionStatus = useAuthStore((state) => state.connectionStatus);
+  const { canConfigure } = useCompanyAccess();
   const apiBase = useAuthStore((state) => state.apiBase);
   const clearConfigCache = useConfigStore((state) => state.clearCache);
   const showNotification = useNotificationStore((state) => state.showNotification);
@@ -826,7 +829,8 @@ export function PluginStorePage() {
         ? t('plugin_store.auth_configured')
         : t('plugin_store.auth_required')
       : '';
-    const actionDisabled = !connected || missingAuth || (hasPendingInstall && !isInstalling);
+    const actionDisabled =
+      !canConfigure || !connected || missingAuth || (hasPendingInstall && !isInstalling);
     const actionTitle = missingAuth ? t('plugin_store.auth_required_hint') : undefined;
 
     return (
@@ -985,6 +989,7 @@ export function PluginStorePage() {
 
   return (
     <div className={styles.page}>
+      <ReadOnlyNotice />
       {/* ── Page Header ── */}
       <div className={styles.pageHeader}>
         <h1 className={styles.title}>{t('plugin_store.title')}</h1>

@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useCompanyAccess } from '@/features/company/access';
+import { ReadOnlyNotice } from '@/features/company/ReadOnlyNotice';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { usePageTransitionLayer } from '@/components/common/PageTransitionLayer';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
@@ -62,6 +64,7 @@ export function ConfigPage() {
   const isCurrentLayer = pageTransitionLayer ? pageTransitionLayer.isCurrentLayer : true;
   const showNotification = useNotificationStore((state) => state.showNotification);
   const connectionStatus = useAuthStore((state) => state.connectionStatus);
+  const { canConfigure } = useCompanyAccess();
   const resolvedTheme = useThemeStore((state) => state.resolvedTheme);
   const isMobile = useMediaQuery('(max-width: 768px)');
   const revealRef = useRevealGroup<HTMLDivElement>();
@@ -256,6 +259,7 @@ export function ConfigPage() {
   });
 
   const saveDisabled =
+    !canConfigure ||
     disableControls ||
     doc.loading ||
     doc.saving ||
@@ -268,7 +272,12 @@ export function ConfigPage() {
     values: visualValues,
     validationErrors: visualValidationErrors,
     disabled:
-      disableControls || doc.loading || doc.saving || doc.diffModalOpen || doc.recoveryRequired,
+      !canConfigure ||
+      disableControls ||
+      doc.loading ||
+      doc.saving ||
+      doc.diffModalOpen ||
+      doc.recoveryRequired,
     animateIn: animateCards,
     onChange: setVisualValues,
   };
@@ -301,6 +310,7 @@ export function ConfigPage() {
 
   return (
     <div className={styles.page} ref={revealRef}>
+      <ReadOnlyNotice />
       <ConfigHeader
         meta={headerMeta}
         reloadDisabled={doc.loading || doc.saving}
@@ -358,7 +368,9 @@ export function ConfigPage() {
           value={doc.content}
           onChange={doc.handleChange}
           theme={resolvedTheme}
-          editable={!disableControls && !doc.loading && !doc.saving && !doc.diffModalOpen}
+          editable={
+            canConfigure && !disableControls && !doc.loading && !doc.saving && !doc.diffModalOpen
+          }
         />
       )}
 

@@ -16,6 +16,7 @@ import {
 } from '@/utils/recentRequests';
 import { parseTimestampMs } from '@/utils/timestamp';
 import { normalizeAuthFileCooldowns, normalizeCooldownTimestamp } from './authFileCooldowns';
+import { COMPANY_MODE } from '@/features/company/mode';
 
 type AuthFileStatusResponse = { status: string; disabled: boolean };
 export type AuthFileLookup = { name: string; authIndex?: string };
@@ -273,6 +274,13 @@ const normalizeAuthFileEntry = (
 
   return {
     ...entry,
+    owner: readTextField(entry, 'owner') || undefined,
+    ownerLogin: readTextField(entry, 'owner_login') || undefined,
+    addedBy: readTextField(entry, 'added_by') || undefined,
+    isOwn: typeof entry.is_own === 'boolean' ? entry.is_own : undefined,
+    canManage: typeof entry.can_manage === 'boolean' ? entry.can_manage : undefined,
+    companyAccountId: readTextField(entry, 'company_account_id') || undefined,
+    companyRevision: typeof entry.revision === 'number' ? entry.revision : undefined,
     cooldownSnapshot: normalizeAuthFileCooldowns(entry.cooldowns, observedAt, receivedAtMs),
     runtimeOnly: readRuntimeOnlyField(entry),
     authIndex: normalizeRecentRequestAuthIndex(entry['auth_index'] ?? entry.authIndex),
@@ -520,31 +528,66 @@ export interface AuthFileCooldownResetResponse {
   models: string[];
 }
 
+const companyCredentials = new Map<string, AuthFileEntry>();
+let companyCredentialConnection = -1;
+const companyMutationConfig = (name: string): [] | [{ headers: Record<string, string> }] => {
+  if (!COMPANY_MODE) return [];
+  const file =
+    companyCredentialConnection === apiClient.getConnectionRevision()
+      ? companyCredentials.get(name)
+      : undefined;
+  if (file?.canManage === true && !file.companyAccountId && file.companyRevision === undefined)
+    return [];
+  if (!file || file.canManage !== true || file.companyRevision === undefined) {
+    throw new Error('Credential is read-only or requires a refresh');
+  }
+  return [{ headers: { 'X-Company-Account-Revision': String(file.companyRevision) } }];
+};
+
 export const authFilesApi = {
-  list: async (lookup?: AuthFileLookup) =>
-    normalizeAuthFilesResponse(
+  list: async (lookup?: AuthFileLookup) => {
+    const revision = apiClient.getConnectionRevision();
+    const data = normalizeAuthFilesResponse(
       await apiClient.get<AuthFilesResponse>(
         '/credentials',
         lookup ? { params: { name: lookup.name, auth_index: lookup.authIndex } } : undefined
       )
-    ),
+    );
+    if (COMPANY_MODE && revision === apiClient.getConnectionRevision()) {
+      if (companyCredentialConnection !== revision) companyCredentials.clear();
+      companyCredentialConnection = revision;
+      for (const file of data.files) {
+        companyCredentials.set(file.name, file);
+        if (typeof file.authIndex === 'string') companyCredentials.set(file.authIndex, file);
+      }
+    }
+    return data;
+  },
 
   setStatus: (name: string, disabled: boolean, authIndex?: string) =>
-    apiClient.patch<AuthFileStatusResponse>('/credentials/status', {
-      name,
-      disabled,
-      ...(authIndex ? { auth_index: authIndex } : {}),
-    }),
+    apiClient.patch<AuthFileStatusResponse>(
+      '/credentials/status',
+      {
+        name,
+        disabled,
+        ...(authIndex ? { auth_index: authIndex } : {}),
+      },
+      ...companyMutationConfig(name)
+    ),
 
   patchFields: (name: string, fields: AuthFileFieldsPatch) =>
-    apiClient.patch('/credentials/fields', { name, ...fields }),
+    apiClient.patch('/credentials/fields', { name, ...fields }, ...companyMutationConfig(name)),
 
   requestManualRefresh: async (name: string, authIndex?: string): Promise<void> => {
     // The refresh response may include tokens. Never return it to callers.
-    await apiClient.post<unknown>('/credentials/refresh', {
-      name,
-      ...(authIndex ? { auth_index: authIndex } : {}),
-    });
+    await apiClient.post<unknown>(
+      '/credentials/refresh',
+      {
+        name,
+        ...(authIndex ? { auth_index: authIndex } : {}),
+      },
+      ...companyMutationConfig(name)
+    );
   },
 
   requestAllManualRefresh: async (): Promise<AuthFileRefreshResult[]> => {
@@ -557,14 +600,46 @@ export const authFilesApi = {
   },
 
   resetCooldown: (authIndex: string) =>
-    apiClient.post<AuthFileCooldownResetResponse>('/routing/cooldown/reset', {
-      auth_index: authIndex,
-    }),
+    apiClient.post<AuthFileCooldownResetResponse>(
+      '/routing/cooldown/reset',
+      {
+        auth_index: authIndex,
+      },
+      ...companyMutationConfig(authIndex)
+    ),
 
   uploadFiles: async (files: File[]): Promise<AuthFileBatchUploadResult> => {
     const requestedNames = files.map((file) => file.name);
     if (requestedNames.length === 0) {
       return { status: 'ok', uploaded: 0, files: [], failed: [] };
+    }
+    if (COMPANY_MODE) {
+      const uploaded: string[] = [];
+      const failed: AuthFileBatchFailure[] = [];
+      for (const file of files) {
+        try {
+          const form = new FormData();
+          form.append('file', file, file.name);
+          const config =
+            companyCredentialConnection === apiClient.getConnectionRevision() &&
+            companyCredentials.has(file.name)
+              ? companyMutationConfig(file.name)[0]
+              : undefined;
+          await apiClient.postForm('/credentials', form, config);
+          uploaded.push(file.name);
+        } catch (error: unknown) {
+          failed.push({
+            name: file.name,
+            error: error instanceof Error ? error.message : 'Upload failed',
+          });
+        }
+      }
+      return {
+        status: failed.length ? 'partial' : 'ok',
+        uploaded: uploaded.length,
+        files: uploaded,
+        failed,
+      };
     }
 
     const formData = new FormData();
@@ -581,6 +656,23 @@ export const authFilesApi = {
       return { status: 'ok', deleted: 0, files: [], failed: [] };
     }
 
+    if (COMPANY_MODE) {
+      const files: string[] = [];
+      const failed: AuthFileBatchFailure[] = [];
+      for (const name of requestedNames) {
+        try {
+          await apiClient.delete('/credentials', {
+            ...(companyMutationConfig(name)[0] ?? {}),
+            params: { name },
+          });
+          files.push(name);
+          companyCredentials.delete(name);
+        } catch (error: unknown) {
+          failed.push({ name, error: error instanceof Error ? error.message : 'Delete failed' });
+        }
+      }
+      return { status: failed.length ? 'partial' : 'ok', deleted: files.length, files, failed };
+    }
     const payload = await apiClient.delete<AuthFileBatchDeleteResponse>('/credentials', {
       data: { names: requestedNames },
     });

@@ -42,6 +42,14 @@ export interface AuthFileCooldownSnapshot {
 
 export interface AuthFileItem {
   name: string;
+  owner?: string;
+  ownerLogin?: string;
+  addedBy?: string;
+  isOwn?: boolean;
+  canManage?: boolean;
+  companyAccountId?: string;
+  companyRevision?: number;
+  shared?: boolean;
   type?: AuthFileType | string;
   provider?: string;
   /**

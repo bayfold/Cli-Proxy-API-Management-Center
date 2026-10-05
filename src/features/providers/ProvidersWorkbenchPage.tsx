@@ -1,5 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useCompanyAccess } from '@/features/company/access';
+import { ReadOnlyNotice } from '@/features/company/ReadOnlyNotice';
 import { usePageTransitionLayer } from '@/components/common/PageTransitionLayer';
 import { useHeaderRefresh } from '@/hooks/useHeaderRefresh';
 import { Skeleton } from '@/components/ui/Skeleton';
@@ -100,6 +102,7 @@ const getResourceRecentSuccess = (
 export function ProvidersWorkbenchPage({ fixedBrand }: ProvidersWorkbenchPageProps = {}) {
   const { t, i18n } = useTranslation();
   const connectionStatus = useAuthStore((s) => s.connectionStatus);
+  const { canConfigure } = useCompanyAccess();
   const { showNotification, showConfirmation } = useNotificationStore();
 
   const pageTransitionLayer = usePageTransitionLayer();
@@ -127,6 +130,7 @@ export function ProvidersWorkbenchPage({ fixedBrand }: ProvidersWorkbenchPagePro
   useHeaderRefresh(handleRefresh, isCurrentLayer);
 
   const disableMutations =
+    !canConfigure ||
     connectionStatus !== 'connected' ||
     workbench.mutating ||
     workbench.isFetching ||
@@ -387,6 +391,7 @@ export function ProvidersWorkbenchPage({ fixedBrand }: ProvidersWorkbenchPagePro
   if (!activeGroup) {
     return (
       <div className={styles.page}>
+        <ReadOnlyNotice />
         <ProviderHeaderCard
           title={headerTitle}
           totalActive={0}

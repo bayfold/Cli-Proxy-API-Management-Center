@@ -15,6 +15,7 @@ import {
 } from '@/utils/constants';
 import { computeApiUrl } from '@/utils/connection';
 import { parseApiErrorResponse } from './apiError';
+import { COMPANY_MODE } from '@/features/company/mode';
 
 class ApiClient {
   private instance: AxiosInstance;
@@ -37,12 +38,13 @@ class ApiClient {
    * 设置 API 配置
    */
   setConfig(config: ApiClientConfig): void {
-    const apiBase = computeApiUrl(config.apiBase);
-    if (apiBase !== this.apiBase || config.managementKey !== this.managementKey) {
+    const apiBase = COMPANY_MODE ? '/v8/management' : computeApiUrl(config.apiBase);
+    const managementKey = COMPANY_MODE ? '' : config.managementKey;
+    if (apiBase !== this.apiBase || managementKey !== this.managementKey) {
       this.connectionRevision += 1;
     }
     this.apiBase = apiBase;
-    this.managementKey = config.managementKey;
+    this.managementKey = managementKey;
 
     if (config.timeout) {
       this.instance.defaults.timeout = config.timeout;
@@ -120,6 +122,8 @@ class ApiClient {
         // 添加认证头
         if (this.managementKey) {
           config.headers.Authorization = `Bearer ${this.managementKey}`;
+        } else if (COMPANY_MODE) {
+          delete config.headers.Authorization;
         }
 
         return config;

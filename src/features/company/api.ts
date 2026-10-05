@@ -5,6 +5,10 @@ export interface Member {
   account_management: boolean;
   reauthentication: boolean;
   operator: boolean;
+  admin?: boolean;
+  login?: string;
+  display_name?: string;
+  capabilities?: Record<string, boolean>;
   allow_shared: boolean;
   model_providers: Record<string, string>;
 }
@@ -14,6 +18,11 @@ export interface Account {
   label: string;
   shared: boolean;
   revision: number;
+  owner?: string;
+  added_by?: string;
+  is_own?: boolean;
+  can_manage?: boolean;
+  owner_login?: string;
   health: {
     status: string;
     disabled: boolean;
@@ -44,6 +53,10 @@ export interface AccessKey {
   created_at: number;
   expires_at: number;
   revoked_at: number;
+  owner?: string;
+  added_by?: string;
+  is_own?: boolean;
+  can_manage?: boolean;
 }
 export interface UsageSummary {
   requests: number;

@@ -22,6 +22,8 @@ function harness() {
   }[] = [];
   const env = {
     files: original,
+    COMPANY_MODE: false,
+    loadFiles: async () => {},
     getAuthFileRefreshKey,
     apiClient: { getConnectionRevision: () => revision },
     authFilesApi: {
@@ -89,7 +91,7 @@ describe('auth file status identity', () => {
       compilerOptions: { target: ts.ScriptTarget.ES2022 },
     }).outputText;
     const calls: unknown[][] = [];
-    const api = new Function('apiClient', js)({ patch: (...args: unknown[]) => calls.push(args) });
+    const api = new Function('apiClient', 'companyMutationConfig', js)({ patch: (...args: unknown[]) => calls.push(args) }, () => []);
     api.setStatus('shared.json', true, 'b');
     api.setStatus('ordinary.json', false);
     expect(calls).toEqual([

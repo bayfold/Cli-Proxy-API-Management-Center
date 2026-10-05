@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useCompanyAccess } from '@/features/company/access';
+import { ReadOnlyNotice } from '@/features/company/ReadOnlyNotice';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -65,6 +67,7 @@ export function PluginsPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const connectionStatus = useAuthStore((state) => state.connectionStatus);
+  const { canConfigure } = useCompanyAccess();
   const apiBase = useAuthStore((state) => state.apiBase);
   const managementKey = useAuthStore((state) => state.managementKey);
   const clearConfigCache = useConfigStore((state) => state.clearCache);
@@ -486,6 +489,7 @@ export function PluginsPage() {
 
   return (
     <div className={styles.page}>
+      <ReadOnlyNotice />
       {/* ── Page Header ── */}
       <div className={styles.pageHeader}>
         <h1 className={styles.title}>{t('plugin_management.title')}</h1>
@@ -603,7 +607,8 @@ export function PluginsPage() {
             const github = plugin.metadata?.githubRepository.trim();
             const openingConfig = openingConfigID === plugin.id;
             const deletingPlugin = deletingID === plugin.id;
-            const actionBusy = Boolean(mutatingID || openingConfigID || deletingID);
+            const actionBusy =
+              !canConfigure || Boolean(mutatingID || openingConfigID || deletingID);
             const version = plugin.metadata?.version;
             const author = plugin.metadata?.author;
 

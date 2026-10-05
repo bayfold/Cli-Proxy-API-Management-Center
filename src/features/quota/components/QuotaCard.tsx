@@ -9,6 +9,7 @@
 
 import { useState, type CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useCompanyAccess } from '@/features/company/access';
 import { IconRefreshCw } from '@/components/ui/icons';
 import type { ResolvedTheme } from '@/types';
 import { resolveQuotaErrorMessage } from '@/utils/quota';
@@ -53,6 +54,8 @@ export function QuotaCard(props: QuotaCardProps) {
     onReset,
   } = props;
   const { t } = useTranslation();
+  const { company, admin } = useCompanyAccess();
+  const canReset = !company || admin;
   const adapter = QUOTA_ADAPTERS[entry.type];
   const file = entry.file;
   const displayName = getQuotaDisplayName(file);
@@ -68,7 +71,7 @@ export function QuotaCard(props: QuotaCardProps) {
   const loading = status === 'loading';
   const claudeReset = useClaudeResetGrants(
     file,
-    entry.type === 'claude' && status !== 'idle',
+    canReset && entry.type === 'claude' && status !== 'idle',
     !canRefresh || loading || resetting,
     quota,
     onRefresh
@@ -81,6 +84,7 @@ export function QuotaCard(props: QuotaCardProps) {
     quota?.error || t('common.unknown_error')
   );
   const showReset =
+    canReset &&
     status === 'success' &&
     Boolean(adapter.resetQuota) &&
     quota !== undefined &&

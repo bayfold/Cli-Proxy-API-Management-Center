@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { COMPANY_MODE } from '@/features/company/mode';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -271,6 +272,8 @@ const resolveCallbackUrl = (provider: string, input: string, state?: string): st
 export function OAuthPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const companyMember = useAuthStore((state) => state.companyMember);
   const apiBase = useAuthStore((state) => state.apiBase);
   const { showNotification } = useNotificationStore();
   const resolvedTheme = useThemeStore((state) => state.resolvedTheme);
@@ -336,7 +339,10 @@ export function OAuthPage() {
   }, [apiBase]);
 
   const providerCards = useMemo<OAuthProviderCard[]>(
-    () => [...PROVIDERS, ...pluginProviders],
+    () =>
+      COMPANY_MODE
+        ? PROVIDERS.filter((provider) => ['codex', 'anthropic'].includes(provider.id))
+        : [...PROVIDERS, ...pluginProviders],
     [pluginProviders]
   );
 
@@ -470,7 +476,41 @@ export function OAuthPage() {
     startPolling(provider, state, attempt);
   };
 
+  useEffect(() => {
+    if (!COMPANY_MODE) return;
+    let current = true;
+    for (const provider of ['codex', 'anthropic']) {
+      void oauthApi
+        .resumeCompanyAuth(provider)
+        .then((login) => {
+          if (!current || !login?.state) return;
+          const attempt = attempts.current.begin(provider);
+          updateProviderState(provider, {
+            url: login.url,
+            state: login.state,
+            status: 'waiting',
+            polling: true,
+          });
+          startPolling(provider, login.state, attempt);
+        })
+        .catch(() => {
+          if (current) showNotification(t('company.errors.request_failed'), 'error');
+        });
+    }
+    return () => {
+      current = false;
+    };
+    // Restoring an opaque operation is a mount action, not a new OAuth attempt.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const startAuth = async (provider: string) => {
+    if (COMPANY_MODE && states[provider]?.state) {
+      const attempt = attempts.current.begin(provider);
+      updateProviderState(provider, { status: 'waiting', polling: true, error: undefined });
+      startPolling(provider, states[provider]!.state!, attempt);
+      return;
+    }
     // A network error can stop polling while the server is still waiting. Require
     // explicit cancellation before replacing that Devin session.
     if (provider === 'devin' && states[provider]?.state) return;
@@ -490,7 +530,11 @@ export function OAuthPage() {
       callbackSubmitting: false,
     });
     try {
-      const res = await oauthApi.startAuth(provider, attempt.signal);
+      const res = await oauthApi.startAuth(
+        provider,
+        attempt.signal,
+        searchParams.get('account') ?? undefined
+      );
       if (!attempt.isCurrent()) return;
       if (!res.state) {
         const message = t('auth_login.missing_state');
@@ -576,8 +620,17 @@ export function OAuthPage() {
       callbackError: undefined,
     });
     try {
-      await oauthApi.submitCallback(provider, redirectUrl, attempt.signal);
+      await oauthApi.submitCallback(provider, redirectUrl, attempt.signal, states[provider]?.state);
       if (!attempt.isCurrent()) return;
+      if (COMPANY_MODE && states[provider]?.state) {
+        const status = await oauthApi.getAuthStatus(states[provider]!.state!, attempt.signal);
+        if (!attempt.isCurrent()) return;
+        if (status.status === 'ok') {
+          completeProviderAuth(provider);
+          showNotification(getProviderTextByID(provider, 'oauth_status_success'), 'success');
+          return;
+        }
+      }
       updateProviderState(provider, { callbackSubmitting: false, callbackStatus: 'success' });
       showNotification(t('auth_login.oauth_callback_success'), 'success');
     } catch (err: unknown) {
@@ -713,7 +766,10 @@ export function OAuthPage() {
             <Button
               onClick={() => startAuth(provider.id)}
               loading={state.polling}
-              disabled={provider.id === 'devin' && Boolean(state.state)}
+              disabled={
+                (provider.id === 'devin' && Boolean(state.state)) ||
+                (COMPANY_MODE && companyMember?.reauthentication === false)
+              }
             >
               {loginButtonLabel}
             </Button>
@@ -878,99 +934,109 @@ export function OAuthPage() {
         </section>
 
         {/* Vertex JSON 登录 */}
-        <section className={styles.providerSection}>
-          <h2 className={styles.sectionTitle}>{t('auth_login.other_login_methods')}</h2>
-          <Card
-            title={
-              <span className={styles.cardTitle}>
-                <img src={iconVertex} alt="" className={styles.cardTitleIcon} />
-                {t('vertex_import.title')}
-              </span>
-            }
-            extra={
-              <Button onClick={handleVertexImport} loading={vertexState.loading}>
-                {t('vertex_import.import_button')}
-              </Button>
-            }
-          >
-            <div className={styles.cardContent}>
-              <div className={styles.cardHint}>{t('vertex_import.description')}</div>
-              <Input
-                label={t('vertex_import.location_label')}
-                hint={t('vertex_import.location_hint')}
-                value={vertexState.location}
-                onChange={(e) =>
-                  setVertexState((prev) => ({
-                    ...prev,
-                    location: e.target.value,
-                  }))
-                }
-                placeholder={t('vertex_import.location_placeholder')}
-              />
-              <div className={styles.formItem}>
-                <label className={styles.formItemLabel}>{t('vertex_import.file_label')}</label>
-                <div className={styles.filePicker}>
-                  <Button variant="secondary" size="sm" onClick={handleVertexFilePick}>
-                    {t('vertex_import.choose_file')}
-                  </Button>
-                  <div
-                    className={`${styles.fileName} ${
-                      vertexState.fileName ? '' : styles.fileNamePlaceholder
-                    }`.trim()}
-                  >
-                    {vertexState.fileName || t('vertex_import.file_placeholder')}
-                  </div>
-                </div>
-                <div className={styles.cardHintSecondary}>{t('vertex_import.file_hint')}</div>
-                <input
-                  ref={vertexFileInputRef}
-                  type="file"
-                  accept=".json,application/json"
-                  style={{ display: 'none' }}
-                  onChange={handleVertexFileChange}
+        {!COMPANY_MODE && (
+          <section className={styles.providerSection}>
+            <h2 className={styles.sectionTitle}>{t('auth_login.other_login_methods')}</h2>
+            <Card
+              title={
+                <span className={styles.cardTitle}>
+                  <img src={iconVertex} alt="" className={styles.cardTitleIcon} />
+                  {t('vertex_import.title')}
+                </span>
+              }
+              extra={
+                <Button onClick={handleVertexImport} loading={vertexState.loading}>
+                  {t('vertex_import.import_button')}
+                </Button>
+              }
+            >
+              <div className={styles.cardContent}>
+                <div className={styles.cardHint}>{t('vertex_import.description')}</div>
+                <Input
+                  label={t('vertex_import.location_label')}
+                  hint={t('vertex_import.location_hint')}
+                  value={vertexState.location}
+                  onChange={(e) =>
+                    setVertexState((prev) => ({
+                      ...prev,
+                      location: e.target.value,
+                    }))
+                  }
+                  placeholder={t('vertex_import.location_placeholder')}
                 />
-              </div>
-              {vertexState.error && <div className="status-badge error">{vertexState.error}</div>}
-              {vertexState.result && (
-                <div className={styles.connectionBox}>
-                  <div className={styles.connectionLabel}>{t('vertex_import.result_title')}</div>
-                  <div className={styles.keyValueList}>
-                    {vertexState.result.projectId && (
-                      <div className={styles.keyValueItem}>
-                        <span className={styles.keyValueKey}>
-                          {t('vertex_import.result_project')}
-                        </span>
-                        <span className={styles.keyValueValue}>{vertexState.result.projectId}</span>
-                      </div>
-                    )}
-                    {vertexState.result.email && (
-                      <div className={styles.keyValueItem}>
-                        <span className={styles.keyValueKey}>
-                          {t('vertex_import.result_email')}
-                        </span>
-                        <span className={styles.keyValueValue}>{vertexState.result.email}</span>
-                      </div>
-                    )}
-                    {vertexState.result.location && (
-                      <div className={styles.keyValueItem}>
-                        <span className={styles.keyValueKey}>
-                          {t('vertex_import.result_location')}
-                        </span>
-                        <span className={styles.keyValueValue}>{vertexState.result.location}</span>
-                      </div>
-                    )}
-                    {vertexState.result.authFile && (
-                      <div className={styles.keyValueItem}>
-                        <span className={styles.keyValueKey}>{t('vertex_import.result_file')}</span>
-                        <span className={styles.keyValueValue}>{vertexState.result.authFile}</span>
-                      </div>
-                    )}
+                <div className={styles.formItem}>
+                  <label className={styles.formItemLabel}>{t('vertex_import.file_label')}</label>
+                  <div className={styles.filePicker}>
+                    <Button variant="secondary" size="sm" onClick={handleVertexFilePick}>
+                      {t('vertex_import.choose_file')}
+                    </Button>
+                    <div
+                      className={`${styles.fileName} ${
+                        vertexState.fileName ? '' : styles.fileNamePlaceholder
+                      }`.trim()}
+                    >
+                      {vertexState.fileName || t('vertex_import.file_placeholder')}
+                    </div>
                   </div>
+                  <div className={styles.cardHintSecondary}>{t('vertex_import.file_hint')}</div>
+                  <input
+                    ref={vertexFileInputRef}
+                    type="file"
+                    accept=".json,application/json"
+                    style={{ display: 'none' }}
+                    onChange={handleVertexFileChange}
+                  />
                 </div>
-              )}
-            </div>
-          </Card>
-        </section>
+                {vertexState.error && <div className="status-badge error">{vertexState.error}</div>}
+                {vertexState.result && (
+                  <div className={styles.connectionBox}>
+                    <div className={styles.connectionLabel}>{t('vertex_import.result_title')}</div>
+                    <div className={styles.keyValueList}>
+                      {vertexState.result.projectId && (
+                        <div className={styles.keyValueItem}>
+                          <span className={styles.keyValueKey}>
+                            {t('vertex_import.result_project')}
+                          </span>
+                          <span className={styles.keyValueValue}>
+                            {vertexState.result.projectId}
+                          </span>
+                        </div>
+                      )}
+                      {vertexState.result.email && (
+                        <div className={styles.keyValueItem}>
+                          <span className={styles.keyValueKey}>
+                            {t('vertex_import.result_email')}
+                          </span>
+                          <span className={styles.keyValueValue}>{vertexState.result.email}</span>
+                        </div>
+                      )}
+                      {vertexState.result.location && (
+                        <div className={styles.keyValueItem}>
+                          <span className={styles.keyValueKey}>
+                            {t('vertex_import.result_location')}
+                          </span>
+                          <span className={styles.keyValueValue}>
+                            {vertexState.result.location}
+                          </span>
+                        </div>
+                      )}
+                      {vertexState.result.authFile && (
+                        <div className={styles.keyValueItem}>
+                          <span className={styles.keyValueKey}>
+                            {t('vertex_import.result_file')}
+                          </span>
+                          <span className={styles.keyValueValue}>
+                            {vertexState.result.authFile}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </Card>
+          </section>
+        )}
       </div>
     </div>
   );

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { apiKeysApi } from '@/services/api/apiKeys';
 import { useAuthStore, useConfigStore } from '@/stores';
+import { COMPANY_MODE } from '@/features/company/mode';
 
 const normalizeApiKeyList = (input: unknown): string[] => {
   if (!Array.isArray(input)) return [];
@@ -42,6 +43,7 @@ export function useApiKeysForModels() {
 
   return useCallback(
     async ({ force = false }: { force?: boolean } = {}) => {
+      if (COMPANY_MODE) return [];
       if (force) {
         cacheRef.current = [];
       }

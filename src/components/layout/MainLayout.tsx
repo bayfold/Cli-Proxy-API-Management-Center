@@ -308,9 +308,9 @@ const THEME_CARDS: Array<{
 
 export interface CompanyLayout {
   member: string;
-  navGroups: SidebarNavGroup[];
-  refresh: () => Promise<void>;
-  render: (location: Location) => ReactNode;
+  navGroups?: SidebarNavGroup[];
+  refresh?: () => Promise<void>;
+  render?: (location: Location) => ReactNode;
 }
 
 export function MainLayout({ company }: { company?: CompanyLayout } = {}) {
@@ -323,7 +323,7 @@ export function MainLayout({ company }: { company?: CompanyLayout } = {}) {
   const connectionStatus = useAuthStore((state) => state.connectionStatus);
   const apiBase = useAuthStore((state) => state.apiBase);
   const instanceSupportsPlugin = useAuthStore((state) => state.supportsPlugin);
-  const supportsPlugin = !companyMode && instanceSupportsPlugin;
+  const supportsPlugin = instanceSupportsPlugin;
 
   const fetchConfig = useConfigStore((state) => state.fetchConfig);
   const clearCache = useConfigStore((state) => state.clearCache);
@@ -488,14 +488,13 @@ export function MainLayout({ company }: { company?: CompanyLayout } = {}) {
   );
 
   useEffect(() => {
-    if (companyMode) return;
     fetchConfig().catch(() => {
       // Ignore the initial failure; the login flow shows the user-facing prompt.
     });
-  }, [fetchConfig, companyMode]);
+  }, [fetchConfig]);
 
   const loadPluginResources = useCallback(async () => {
-    if (companyMode || connectionStatus !== 'connected' || !supportsPlugin) {
+    if (connectionStatus !== 'connected' || !supportsPlugin) {
       setPluginResources([]);
       return;
     }
@@ -506,11 +505,11 @@ export function MainLayout({ company }: { company?: CompanyLayout } = {}) {
     } catch {
       setPluginResources([]);
     }
-  }, [connectionStatus, supportsPlugin, companyMode]);
+  }, [connectionStatus, supportsPlugin]);
 
   const loadAuthFilesCount = useCallback(async () => {
     const requestID = ++authFilesCountRequestRef.current;
-    if (companyMode || connectionStatus !== 'connected') {
+    if (connectionStatus !== 'connected') {
       setAuthFilesCount(null);
       return;
     }
@@ -523,7 +522,7 @@ export function MainLayout({ company }: { company?: CompanyLayout } = {}) {
       if (requestID !== authFilesCountRequestRef.current) return;
       setAuthFilesCount(null);
     }
-  }, [connectionStatus, companyMode]);
+  }, [connectionStatus]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -643,6 +642,15 @@ export function MainLayout({ company }: { company?: CompanyLayout } = {}) {
           metaKey: 'nav_meta.oauth',
           icon: sidebarIcons.oauth,
         },
+        ...(companyMode
+          ? [
+              {
+                path: '/connect',
+                labelKey: 'company.keys',
+                icon: sidebarIcons.quickStart,
+              },
+            ]
+          : []),
         ...(isApiKeyFunConfigured ? [quickStartNavItem] : []),
       ],
     },
@@ -662,6 +670,20 @@ export function MainLayout({ company }: { company?: CompanyLayout } = {}) {
           metaKey: 'nav_meta.logs',
           icon: sidebarIcons.logs,
         },
+        ...(companyMode
+          ? [
+              {
+                path: '/company-usage',
+                labelKey: 'company.usage',
+                icon: sidebarIcons.dashboard,
+              },
+              {
+                path: '/request-logs',
+                labelKey: 'company.logs',
+                icon: sidebarIcons.logs,
+              },
+            ]
+          : []),
       ],
     },
     {
@@ -749,9 +771,8 @@ export function MainLayout({ company }: { company?: CompanyLayout } = {}) {
   }, []);
 
   const handleRefreshAll = async () => {
-    if (company) {
+    if (company?.refresh) {
       await company.refresh();
-      return;
     }
     clearCache();
     const results = await Promise.allSettled([
@@ -1222,7 +1243,7 @@ export function MainLayout({ company }: { company?: CompanyLayout } = {}) {
           >
             <PageTransition
               render={(location) =>
-                company ? company.render(location) : <MainRoutes location={location} />
+                company?.render ? company.render(location) : <MainRoutes location={location} />
               }
               getRouteOrder={getRouteOrder}
               getTransitionVariant={getTransitionVariant}

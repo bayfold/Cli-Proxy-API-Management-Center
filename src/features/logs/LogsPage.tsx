@@ -1,6 +1,8 @@
 import { useDeferredValue, useEffect, useMemo, useReducer, useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useCompanyAccess } from '@/features/company/access';
+import { ReadOnlyNotice } from '@/features/company/ReadOnlyNotice';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -56,6 +58,7 @@ export function LogsPage() {
   const { t } = useTranslation();
   const { showNotification } = useNotificationStore();
   const connectionStatus = useAuthStore((state) => state.connectionStatus);
+  const { canConfigure } = useCompanyAccess();
   const apiBase = useAuthStore((state) => state.apiBase);
   const managementKey = useAuthStore((state) => state.managementKey);
   const config = useConfigStore((state) => state.config);
@@ -113,7 +116,7 @@ export function LogsPage() {
   const disableControls = connectionStatus !== 'connected';
   const refreshDisabled = disableControls || loading || clearingLogs || cpaNeedsFileLogging;
   const autoRefreshDisabled = disableControls || showFileLoggingRequired;
-  const clearDisabled = disableControls || clearingLogs || showFileLoggingRequired;
+  const clearDisabled = !canConfigure || disableControls || clearingLogs || showFileLoggingRequired;
 
   const downloadLogs = () => {
     const text = logBuffer.buffer.join('\n');
@@ -399,6 +402,7 @@ export function LogsPage() {
 
   return (
     <div className={styles.container}>
+      <ReadOnlyNotice />
       <header className={styles.pageHeader}>
         <h1 className={styles.pageTitle}>{t('logs.title')}</h1>
         <div className={styles.tabBar} role="group" aria-label={t('logs.title')}>

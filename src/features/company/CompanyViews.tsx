@@ -37,7 +37,14 @@ export function CompanyKeys({ client, member, accounts, report }: Props) {
   const { t } = useTranslation();
   const [keys, setKeys] = useState<AccessKey[]>([]);
   const [name, setName] = useState('');
-  const [account, setAccount] = useState(accounts[0]?.id ?? '');
+  const manageableAccounts = accounts.filter((item) => item.can_manage === true);
+  const defaultAccountId =
+    manageableAccounts.find((item) => item.is_own)?.id ?? manageableAccounts[0]?.id ?? '';
+  const [account, setAccount] = useState(defaultAccountId);
+  const [scopeChosen, setScopeChosen] = useState(false);
+  useEffect(() => {
+    if (!scopeChosen) setAccount(defaultAccountId);
+  }, [defaultAccountId, scopeChosen]);
   const [token, setToken] = useState('');
   const [busy, setBusy] = useState(false);
   const [provider, setProvider] = useState('claude');
@@ -108,13 +115,16 @@ export function CompanyKeys({ client, member, accounts, report }: Props) {
               className="input"
               aria-label={t('company.key_scope')}
               value={account}
-              onChange={(e) => setAccount(e.target.value)}
+              onChange={(e) => {
+                setAccount(e.target.value);
+                setScopeChosen(true);
+              }}
               required={!member.allow_shared}
             >
-              {!accounts.length && !member.allow_shared && (
+              {!manageableAccounts.length && !member.allow_shared && (
                 <option value="">{t('company.no_accounts')}</option>
               )}
-              {accounts.map((a) => (
+              {manageableAccounts.map((a) => (
                 <option key={a.id} value={a.id}>
                   {a.label} · {a.provider}
                 </option>
@@ -161,7 +171,7 @@ export function CompanyKeys({ client, member, accounts, report }: Props) {
         <Table>
           <TableHeader>
             <TableRow>
-              {['key_name', 'key_scope', 'expires', 'state', 'actions'].map((x) => (
+              {['key_name', 'owner', 'key_scope', 'expires', 'state', 'actions'].map((x) => (
                 <TableHead key={x}>{t(`company.${x}`)}</TableHead>
               ))}
             </TableRow>
@@ -172,6 +182,9 @@ export function CompanyKeys({ client, member, accounts, report }: Props) {
                 <TableCell>
                   {k.name}
                   <div className={styles.muted}>{k.id}</div>
+                </TableCell>
+                <TableCell>
+                  {k.is_own ? t('company.yours') : k.owner || k.added_by || '—'}
                 </TableCell>
                 <TableCell>
                   {accounts.find((a) => a.id === k.account_id)?.label ?? t('company.pool_key')}
@@ -190,7 +203,7 @@ export function CompanyKeys({ client, member, accounts, report }: Props) {
                   <Button
                     variant="danger"
                     size="sm"
-                    disabled={busy || !!k.revoked_at}
+                    disabled={busy || !!k.revoked_at || k.can_manage !== true}
                     onClick={() =>
                       void act(async () => {
                         await client.revokeKey(k.id);
@@ -205,7 +218,7 @@ export function CompanyKeys({ client, member, accounts, report }: Props) {
             ))}
             {!keys.length && (
               <TableRow>
-                <TableCell colSpan={5}>{t('company.no_keys')}</TableCell>
+                <TableCell colSpan={6}>{t('company.no_keys')}</TableCell>
               </TableRow>
             )}
           </TableBody>
@@ -392,7 +405,7 @@ export function CompanyMetrics({
               <option value="30d">30d</option>
             </select>
           </label>
-          {member.operator && (
+          {member.account_management && (
             <label>
               {t('company.view_scope')}
               <select

@@ -35,6 +35,7 @@ import type { AuthFileStatusBarData } from '@/features/authFiles/hooks/useAuthFi
 import { AuthFileQuotaSection } from '@/features/authFiles/components/AuthFileQuotaSection';
 import { AuthFileCooldownSection } from './AuthFileCooldownSection';
 import styles from './AuthFileCard.module.scss';
+import { useCompanyAccess } from '@/features/company/access';
 
 export type AuthFileCardProps = {
   file: AuthFileItem;
@@ -58,6 +59,8 @@ export type AuthFileCardProps = {
   onDelete: (name: string) => void;
   onToggleStatus: (file: AuthFileItem, enabled: boolean) => void;
   onToggleSelect: (name: string) => void;
+  onReconnect?: (file: AuthFileItem) => void;
+  onShare?: (file: AuthFileItem, shared: boolean) => void;
 };
 
 export function AuthFileCard(props: AuthFileCardProps) {
@@ -83,7 +86,11 @@ export function AuthFileCard(props: AuthFileCardProps) {
     onDelete,
     onToggleStatus,
     onToggleSelect,
+    onReconnect,
+    onShare,
   } = props;
+  const { company, canDownloadCredentials, canConfigure } = useCompanyAccess();
+  const mutationDisabled = disableControls || (company && file.canManage !== true);
 
   const isRuntimeOnly = isRuntimeOnlyAuthFile(file);
   const providerKey = normalizeProviderKey(String(file.type ?? file.provider ?? 'unknown'));
@@ -133,7 +140,7 @@ export function AuthFileCard(props: AuthFileCardProps) {
   return (
     <article className={cardClasses} style={cardStyle}>
       <header className={styles.head}>
-        {!isRuntimeOnly && (
+        {!isRuntimeOnly && !mutationDisabled && (
           <SelectionCheckbox
             checked={selected}
             onChange={() => onToggleSelect(file.name)}
@@ -165,6 +172,19 @@ export function AuthFileCard(props: AuthFileCardProps) {
         )}
       </header>
 
+      {company && (
+        <p className={styles.fileName}>
+          {file.isOwn
+            ? t('company.yours')
+            : t('company.added_by', {
+                owner: file.ownerLogin || file.owner || file.addedBy || t('company.unclaimed'),
+              })}
+          {' · '}
+          {t(file.shared ? 'company.shared_subscription' : 'company.personal_subscription')}
+          {file.canManage !== true && <> · {t('company.read_only')}</>}
+        </p>
+      )}
+
       {identity.secondary && (
         <p className={styles.fileName} title={identity.fullName}>
           {identity.secondary}
@@ -188,11 +208,11 @@ export function AuthFileCard(props: AuthFileCardProps) {
         snapshot={file.cooldownSnapshot}
         resetting={isCooldownResetting}
         resetDisabled={
-          disableControls ||
+          mutationDisabled ||
           statusUpdating[getAuthFileRefreshKey(file)] === true ||
           isManualRefreshing
         }
-        onReset={authIndexKey ? () => onCooldownReset(file) : undefined}
+        onReset={authIndexKey && canConfigure ? () => onCooldownReset(file) : undefined}
       />
 
       <div className={styles.health}>
@@ -274,7 +294,7 @@ export function AuthFileCard(props: AuthFileCardProps) {
                   className={styles.iconButton}
                   title={t('auth_files.manual_refresh_button')}
                   disabled={
-                    disableControls ||
+                    mutationDisabled ||
                     file.disabled ||
                     statusUpdating[getAuthFileRefreshKey(file)] === true ||
                     isManualRefreshing
@@ -283,23 +303,25 @@ export function AuthFileCard(props: AuthFileCardProps) {
                   {isManualRefreshing ? <LoadingSpinner size={14} /> : <IconRefreshCw size={15} />}
                 </Button>
               )}
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => onDownload(file.name)}
-                className={styles.iconButton}
-                title={t('auth_files.download_button')}
-                disabled={disableControls}
-              >
-                <IconDownload size={15} />
-              </Button>
+              {(canDownloadCredentials || (company && file.isOwn)) && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => onDownload(file.name)}
+                  className={styles.iconButton}
+                  title={t('auth_files.download_button')}
+                  disabled={disableControls}
+                >
+                  <IconDownload size={15} />
+                </Button>
+              )}
               <Button
                 variant="secondary"
                 size="sm"
                 onClick={() => onOpenPrefixProxyEditor(file)}
                 className={styles.iconButton}
                 title={t('auth_files.prefix_proxy_button')}
-                disabled={disableControls || isManualRefreshing}
+                disabled={mutationDisabled || isManualRefreshing || !canConfigure}
               >
                 <IconSettings size={15} />
               </Button>
@@ -309,7 +331,7 @@ export function AuthFileCard(props: AuthFileCardProps) {
                 onClick={() => onDelete(file.name)}
                 className={styles.iconButton}
                 title={t('auth_files.delete_button')}
-                disabled={disableControls || deleting === file.name || isManualRefreshing}
+                disabled={mutationDisabled || deleting === file.name || isManualRefreshing}
               >
                 {deleting === file.name ? <LoadingSpinner size={14} /> : <IconTrash2 size={15} />}
               </Button>
@@ -323,7 +345,7 @@ export function AuthFileCard(props: AuthFileCardProps) {
               ariaLabel={t('auth_files.card_toggle', { name: file.name })}
               checked={!file.disabled}
               disabled={
-                disableControls ||
+                mutationDisabled ||
                 statusUpdating[getAuthFileRefreshKey(file)] === true ||
                 isManualRefreshing
               }
@@ -332,6 +354,26 @@ export function AuthFileCard(props: AuthFileCardProps) {
           </div>
         )}
       </footer>
+      {company && onReconnect && ['claude', 'codex'].includes(providerKey) && (
+        <div className={styles.actions}>
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={mutationDisabled}
+            onClick={() => onReconnect(file)}
+          >
+            {t('company.reconnect')}
+          </Button>
+          {onShare && (
+            <ToggleSwitch
+              checked={file.shared === true}
+              disabled={mutationDisabled}
+              label={t('company.share')}
+              onChange={(value) => onShare(file, value)}
+            />
+          )}
+        </div>
+      )}
     </article>
   );
 }

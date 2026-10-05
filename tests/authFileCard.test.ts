@@ -25,7 +25,9 @@ describe('auth file card presentation contract', () => {
   test('uses one footer toggle and credential-specific accessible names', () => {
     const header = source.split('<header')[1].split('</header>')[0];
     const footer = source.split('<footer')[1].split('</footer>')[0];
-    expect(source.match(/<ToggleSwitch/g)).toHaveLength(1);
+    expect(footer.match(/<ToggleSwitch/g)).toHaveLength(1);
+    expect(source).toContain('company && onReconnect');
+    expect(source).toContain("label={t('company.share')}");
     expect(header).not.toContain('<ToggleSwitch');
     expect(header).toContain("ariaLabel={t('auth_files.card_select', { name: file.name })}");
     expect(header).not.toContain('aria-label=');

@@ -56,6 +56,9 @@ import {
 } from '@/features/authFiles/uiState';
 import { useAuthStore, useNotificationStore, useThemeStore } from '@/stores';
 import styles from './AuthFilesPage.module.scss';
+import { useCompanyAccess } from '@/features/company/access';
+import { CompanyClient } from '@/features/company/api';
+import type { AuthFileItem } from '@/types';
 
 const DEFAULT_REGULAR_PAGE_SIZE = 9;
 const DEFAULT_COMPACT_PAGE_SIZE = 12;
@@ -85,6 +88,9 @@ export function AuthFilesPage() {
   const pageTransitionLayer = usePageTransitionLayer();
   const isCurrentLayer = pageTransitionLayer ? pageTransitionLayer.status === 'current' : true;
   const navigate = useNavigate();
+  const { company, admin } = useCompanyAccess();
+  const [ownerFilter, setOwnerFilter] = useState('all');
+  const client = useMemo(() => new CompanyClient(), []);
 
   const [filter, setFilter] = useState<'all' | string>('all');
   const [statusFilterMode, setStatusFilterMode] = useState<AuthFilesStatusFilterMode>('all');
@@ -446,9 +452,14 @@ export function AuthFilesPage() {
       filesMatchingStatusFilters.filter((item) => {
         const type = normalizeProviderKey(String(item.type ?? item.provider ?? ''));
         const matchType = normalizedFilter === 'all' || type === normalizedFilter;
-        return matchType && matchesAuthFileSearch(item, normalizedSearch, wildcardSearch);
+        const matchOwner =
+          ownerFilter === 'all' ||
+          (ownerFilter === 'self' ? item.isOwn === true : item.owner === ownerFilter);
+        return (
+          matchType && matchOwner && matchesAuthFileSearch(item, normalizedSearch, wildcardSearch)
+        );
       }),
-    [filesMatchingStatusFilters, normalizedFilter, normalizedSearch, wildcardSearch]
+    [filesMatchingStatusFilters, normalizedFilter, normalizedSearch, wildcardSearch, ownerFilter]
   );
 
   const sorted = useMemo(() => sortAuthFiles(filtered, sortMode), [filtered, sortMode]);
@@ -458,12 +469,18 @@ export function AuthFilesPage() {
   const start = (currentPage - 1) * pageSize;
   const pageItems = useMemo(() => sorted.slice(start, start + pageSize), [pageSize, sorted, start]);
   const selectablePageItems = useMemo(
-    () => pageItems.filter((file) => !isRuntimeOnlyAuthFile(file)),
-    [pageItems]
+    () =>
+      pageItems.filter(
+        (file) => !isRuntimeOnlyAuthFile(file) && (!company || file.canManage === true)
+      ),
+    [pageItems, company]
   );
   const selectableFilteredItems = useMemo(
-    () => sorted.filter((file) => !isRuntimeOnlyAuthFile(file)),
-    [sorted]
+    () =>
+      sorted.filter(
+        (file) => !isRuntimeOnlyAuthFile(file) && (!company || file.canManage === true)
+      ),
+    [sorted, company]
   );
   const selectedNames = useMemo(() => Array.from(selectedFiles), [selectedFiles]);
   const selectedHasStatusUpdating = useMemo(
@@ -574,6 +591,23 @@ export function AuthFilesPage() {
   const oauthSectionRef = useRevealOnScroll<HTMLDivElement>();
 
   const isFirstRunEmpty = !loading && files.length === 0 && !error;
+  const reconnect = (file: AuthFileItem) => {
+    if (file.canManage !== true || !file.companyAccountId) return;
+    navigate(`/oauth?account=${encodeURIComponent(file.companyAccountId)}`);
+  };
+  const setShared = async (file: AuthFileItem, shared: boolean) => {
+    if (file.canManage !== true || !file.companyAccountId || file.companyRevision === undefined)
+      return;
+    try {
+      await client.request(`/api/v1/accounts/${encodeURIComponent(file.companyAccountId)}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ shared, revision: file.companyRevision }),
+      });
+      await loadFiles({ background: true });
+    } catch {
+      showNotification(t('company.errors.request_failed'), 'error');
+    }
+  };
   const isNoResults = !loading && files.length > 0 && pageItems.length === 0;
 
   const gridClasses = [
@@ -594,11 +628,12 @@ export function AuthFilesPage() {
         refreshing={refreshing}
         uploading={uploading}
         disableControls={disableControls}
-        onUpload={handleUploadClick}
+        onUpload={company && !admin ? () => navigate('/oauth') : handleUploadClick}
+        uploadLabelKey={company && !admin ? 'company.connect_account' : undefined}
         onRefresh={() => void handleHeaderRefresh()}
         refreshingCredentials={refreshingAllCredentials}
         credentialRefreshDisabled={Object.keys(manualRefreshing).length > 0}
-        onRefreshCredentials={handleRefreshAllCredentials}
+        onRefreshCredentials={company && !admin ? undefined : handleRefreshAllCredentials}
       />
       <AuthFileRefreshResults results={refreshResults} onClose={closeRefreshResults} />
       <input
@@ -613,6 +648,35 @@ export function AuthFilesPage() {
       <VaultPulse files={files} statusBarCache={statusBarCache} />
 
       <section className={styles.workbench} aria-label={t('auth_files.title_section')}>
+        {company && (
+          <div className={styles.ownershipToolbar}>
+            <label>
+              {t('company.owner_filter')}{' '}
+              <select
+                className="input"
+                aria-label={t('company.owner_filter')}
+                value={ownerFilter}
+                onChange={(event) => {
+                  setOwnerFilter(event.target.value);
+                  setPage(1);
+                }}
+              >
+                <option value="all">{t('company.everyone')}</option>
+                <option value="self">{t('company.yours')}</option>
+                {[...new Set(files.map((file) => file.owner).filter(Boolean))].map((owner) => (
+                  <option key={owner} value={owner}>
+                    {files.find((file) => file.owner === owner)?.ownerLogin || owner}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {admin && (
+              <Button size="sm" variant="secondary" onClick={() => navigate('/oauth')}>
+                {t('company.connect_account')}
+              </Button>
+            )}
+          </div>
+        )}
         <ProviderTabs
           types={existingTypes}
           counts={typeCounts}
@@ -642,7 +706,9 @@ export function AuthFilesPage() {
           compactMode={compactMode}
           onCompactModeChange={setCompactMode}
           deleteLabel={deleteAllButtonLabel}
-          deleteDisabled={disableControls || loading || deletingAll || files.length === 0}
+          deleteDisabled={
+            disableControls || loading || deletingAll || files.length === 0 || (company && !admin)
+          }
           deleteLoading={deletingAll}
           onDelete={() =>
             handleDeleteAll({
@@ -678,10 +744,10 @@ export function AuthFilesPage() {
               <div className={styles.emptyActions}>
                 <Button
                   size="sm"
-                  onClick={handleUploadClick}
+                  onClick={company && !admin ? () => navigate('/oauth') : handleUploadClick}
                   disabled={disableControls || uploading}
                 >
-                  {t('auth_files.upload_button')}
+                  {t(company && !admin ? 'company.connect_account' : 'auth_files.upload_button')}
                 </Button>
                 <Button variant="ghost" size="sm" onClick={() => navigate('/oauth')}>
                   {t('auth_files.empty_oauth_link')}
@@ -724,6 +790,8 @@ export function AuthFilesPage() {
                 onDelete={handleDelete}
                 onToggleStatus={handleStatusToggle}
                 onToggleSelect={toggleSelect}
+                onReconnect={company ? reconnect : undefined}
+                onShare={company ? (file, shared) => void setShared(file, shared) : undefined}
               />
             ))}
           </div>
@@ -760,7 +828,7 @@ export function AuthFilesPage() {
 
       <div className={styles.configGrid} ref={oauthSectionRef}>
         <OAuthExcludedCard
-          disableControls={disableControls}
+          disableControls={disableControls || (company && !admin)}
           excludedError={excludedError}
           excluded={excluded}
           onRetry={loadExcluded}
@@ -770,7 +838,7 @@ export function AuthFilesPage() {
         />
 
         <OAuthModelAliasCard
-          disableControls={disableControls}
+          disableControls={disableControls || (company && !admin)}
           viewMode={viewMode}
           onViewModeChange={setViewMode}
           onRetry={loadModelAlias}

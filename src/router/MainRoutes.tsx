@@ -13,6 +13,8 @@ import { ConfigPage } from '@/features/config/ConfigPage';
 import { LogsPage } from '@/features/logs/LogsPage';
 import { SystemPage } from '@/pages/SystemPage';
 import { useAuthStore } from '@/stores';
+import { CompanyPage } from '@/features/company/CompanyPage';
+import { COMPANY_MODE } from '@/features/company/mode';
 
 const createMainRoutes = (supportsPlugin: boolean) => [
   { path: '/', element: <DashboardPage /> },
@@ -28,6 +30,13 @@ const createMainRoutes = (supportsPlugin: boolean) => [
   { path: '/auth-files/oauth-model-alias', element: <AuthFilesOAuthModelAliasEditPage /> },
   { path: '/oauth', element: <OAuthPage /> },
   { path: '/quota', element: <QuotaPage /> },
+  ...(COMPANY_MODE
+    ? [
+        { path: '/connect', element: <CompanyPage view="keys" /> },
+        { path: '/company-usage', element: <CompanyPage view="usage" /> },
+        { path: '/request-logs', element: <CompanyPage view="logs" /> },
+      ]
+    : []),
   ...(supportsPlugin
     ? [
         { path: '/plugin-pages/:pluginId/:menuIndex', element: <PluginResourcePage /> },

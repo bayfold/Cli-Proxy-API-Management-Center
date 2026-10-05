@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
+import { COMPANY_MODE } from '@/features/company/mode';
 import { Modal } from '@/components/ui/Modal';
 import { ToggleSwitch } from '@/components/ui/ToggleSwitch';
 import { IconGithub, IconBookOpen, IconExternalLink, IconCode } from '@/components/ui/icons';
@@ -462,14 +463,16 @@ export function SystemPage() {
           )}
         </Card>
 
-        <Card title={t('system_info.clear_login_title')}>
-          <p className={styles.sectionDescription}>{t('system_info.clear_login_desc')}</p>
-          <div className={styles.clearLoginActions}>
-            <Button variant="danger" onClick={handleClearLoginStorage}>
-              {t('system_info.clear_login_button')}
-            </Button>
-          </div>
-        </Card>
+        {!COMPANY_MODE && (
+          <Card title={t('system_info.clear_login_title')}>
+            <p className={styles.sectionDescription}>{t('system_info.clear_login_desc')}</p>
+            <div className={styles.clearLoginActions}>
+              <Button variant="danger" onClick={handleClearLoginStorage}>
+                {t('system_info.clear_login_button')}
+              </Button>
+            </div>
+          </Card>
+        )}
       </div>
 
       <Modal

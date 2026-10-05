@@ -17,6 +17,7 @@ export type VaultHeaderProps = {
   refreshingCredentials?: boolean;
   credentialRefreshDisabled?: boolean;
   onRefreshCredentials?: () => void;
+  uploadLabelKey?: string;
 };
 
 /**
@@ -37,6 +38,7 @@ export function VaultHeader(props: VaultHeaderProps) {
     refreshingCredentials = false,
     credentialRefreshDisabled = false,
     onRefreshCredentials,
+    uploadLabelKey = 'auth_files.upload_button',
   } = props;
   const { t } = useTranslation();
   const revealRef = useRevealGroup<HTMLElement>();
@@ -99,7 +101,7 @@ export function VaultHeader(props: VaultHeaderProps) {
           disabled={disableControls || uploading}
         >
           {uploading ? <LoadingSpinner size={14} /> : <IconUpload size={15} />}
-          {t('auth_files.upload_button')}
+          {t(uploadLabelKey)}
         </button>
       </div>
     </header>

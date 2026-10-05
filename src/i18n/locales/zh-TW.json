@@ -2255,7 +2255,7 @@
     "theme": "切換主題",
     "loading": "正在連接閘道…",
     "login": "歡迎使用 Company Gateway",
-    "login_hint": "Your Tailscale identity signs you in automatically when enrolled. Otherwise use your individual member access key.",
+    "login_hint": "Your company Tailscale identity signs you in automatically.",
     "access_key": "成員存取金鑰",
     "connect": "連接",
     "navigation": "閘道導覽",
@@ -2329,7 +2329,7 @@
     "copy": "Copy key",
     "copied": "Copied",
     "dismiss": "Dismiss key",
-    "issued_keys": "Your keys",
+    "issued_keys": "Gateway keys",
     "expires": "Expires",
     "state": "State",
     "actions": "Actions",
@@ -2380,6 +2380,19 @@
     "stale": "Stale observation",
     "observed": "Observed",
     "reset": "Resets",
-    "quota_unknown": "Quota not observed yet. A normal provider request can supply an observation."
+    "quota_unknown": "Quota not observed yet. A normal provider request can supply an observation.",
+    "identity_login": "Sign in with Tailscale",
+    "tailscale_required": "Open Company Gateway through the company Tailscale service. Your tailnet identity signs you in automatically; no management key is needed.",
+    "global_read_only": "Company-wide settings are visible to everyone. Only administrators can change these settings.",
+    "owner": "Added by",
+    "owner_filter": "Added by",
+    "everyone": "Everyone",
+    "yours": "Yours",
+    "added_by": "Added by {{owner}}",
+    "unclaimed": "the gateway administrator",
+    "shared_subscription": "Shared quota",
+    "personal_subscription": "Personal quota",
+    "read_only": "Read-only",
+    "retry": "Retry"
   }
 }
