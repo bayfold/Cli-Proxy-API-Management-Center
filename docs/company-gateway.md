@@ -26,9 +26,22 @@ gateway. The pool contains those accounts and explicitly shared subscriptions
 that member is allowed to use, once each. Access counts are not a claim that all
 accounts can serve a request now. Do not sum percentages across plans/providers.
 
-The UI and widget read `GET /api/v1/capacity?provider=claude|codex&model=<allowed-ID>`.
+The widget reads `GET /api/v1/subscriptions`, with only the gateway HTTPS origin
+configured. Providers are discovered automatically. This human-session-only view
+returns owned and permitted shared subscriptions, grouped by provider, with
+included quota windows and reset times. The server selects exact SQLite-backed
+SDK credentials and invokes the same fixed read-only Claude OAuth/Codex WHAM
+usage APIs as standalone mode. Its shared one-minute cache coalesces reads and
+applies provider backoff. Only public account IDs, labels and numeric windows
+are returned; tokens, native credential IDs and raw provider responses stay on
+the server. Ownership, sharing and lifecycle are rechecked after each batch.
+Missing, failed, unsupported and stale quota remains unknown. No model ID or
+management key is required in the widget.
+
+Routing diagnostics still use
+`GET /api/v1/capacity?provider=claude|codex&model=<allowed-ID>`.
 This requires a human member session; model keys, CI principals and leases are
-denied. It makes no provider quota calls. The response contains:
+denied. The capacity endpoint makes no provider quota calls. Its response contains:
 
 - `member_id`, `provider`, `model`, `mode`, `advisory: true`, and `accounts`.
 - Account `id` is an opaque custody ID, with `ownership_tier: own|shared`,
