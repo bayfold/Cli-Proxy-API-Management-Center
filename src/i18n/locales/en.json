@@ -2393,6 +2393,16 @@
     "capacity_unknown": "Unknown quota",
     "capacity_observed": "Observed: {{time}}",
     "capacity_reset": "Limiting reset: {{time}}",
-    "capacity_window": "{{window}}: {{percent}}% remaining"
+    "capacity_window": "{{window}}: {{percent}}% remaining",
+    "resources_title": "Documentation",
+    "resources_overview": "Component overview",
+    "resources_oidc": "GitHub Actions OIDC spec",
+    "resources_ui": "Management UI source",
+    "resources_widget": "macOS quota widget",
+    "resources_hint": "Public source, connection guidance and implementation plans.",
+    "resources_components": "Components and specifications",
+    "resources_access": "The UI and widget are public Bayfold forks. Gateway access still requires your company membership.",
+    "resources_oidc_status": "Design only: GitHub Actions OIDC exchange is not enabled. The first version will use one reviewed workflow, a tailnet runner and a short CI lease.",
+    "resources_read_spec": "Read the specification"
   }
 }

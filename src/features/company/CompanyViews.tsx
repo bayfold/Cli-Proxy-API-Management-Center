@@ -22,6 +22,7 @@ import type {
   UsageSummary,
 } from './api';
 import { connectionCommand } from './connect';
+import { CompanyResourceLinks } from './CompanyResources';
 import styles from './CompanyApp.module.scss';
 
 interface Props {
@@ -225,6 +226,7 @@ export function CompanyKeys({ client, member, accounts, report }: Props) {
         </Table>
       </Card>
       <Card title={t('company.launch_agent')}>
+        <CompanyResourceLinks />
         <p className={styles.muted}>{t('company.launch_hint')}</p>
         <div className={styles.actions}>
           <select

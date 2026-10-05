@@ -2387,6 +2387,16 @@
     "capacity_unknown": "Квота неизвестна",
     "capacity_observed": "Наблюдение: {{time}}",
     "capacity_reset": "Сброс ограничивающего окна: {{time}}",
-    "capacity_window": "{{window}}: осталось {{percent}}%"
+    "capacity_window": "{{window}}: осталось {{percent}}%",
+    "resources_title": "Документация",
+    "resources_overview": "Обзор компонентов",
+    "resources_oidc": "Спецификация GitHub Actions OIDC",
+    "resources_ui": "Исходный код интерфейса",
+    "resources_widget": "Виджет квот для macOS",
+    "resources_hint": "Открытый исходный код, инструкции по подключению и планы реализации.",
+    "resources_components": "Компоненты и спецификации",
+    "resources_access": "Интерфейс и виджет — публичные форки Bayfold. Для доступа к шлюзу по-прежнему нужно членство в компании.",
+    "resources_oidc_status": "Пока только проект: обмен GitHub Actions OIDC не включён. Первая версия использует один проверенный workflow, runner в tailnet и краткосрочную аренду CI.",
+    "resources_read_spec": "Читать спецификацию"
   }
 }

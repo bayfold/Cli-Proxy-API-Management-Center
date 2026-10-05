@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/Button';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { useAuthStore, useConfigStore, useLanguageStore, useThemeStore } from '@/stores';
 import { CompanyClient, CompanyError } from './api';
+import { CompanyResourceLinks } from './CompanyResources';
 import styles from './CompanyApp.module.scss';
 
 // The company build is the upstream management application. Only its login
@@ -107,6 +108,7 @@ function CompanySession() {
         <Card title={t('company.identity_login')}>
           <p role="alert">{t('company.tailscale_required')}</p>
           <Button onClick={() => setRetry((value) => value + 1)}>{t('company.retry')}</Button>
+          <CompanyResourceLinks />
         </Card>
       </div>
     );

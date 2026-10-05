@@ -2391,6 +2391,16 @@
     "capacity_unknown": "额度未知",
     "capacity_observed": "观测时间：{{time}}",
     "capacity_reset": "限制窗口重置：{{time}}",
-    "capacity_window": "{{window}}：剩余 {{percent}}%"
+    "capacity_window": "{{window}}：剩余 {{percent}}%",
+    "resources_title": "文档",
+    "resources_overview": "组件概览",
+    "resources_oidc": "GitHub Actions OIDC 方案",
+    "resources_ui": "管理界面源码",
+    "resources_widget": "macOS 额度小组件",
+    "resources_hint": "公开源码、连接指南和实现方案。",
+    "resources_components": "组件与规范",
+    "resources_access": "界面和小组件是 Bayfold 的公开分支。网关访问仍需公司成员身份。",
+    "resources_oidc_status": "仅设计方案：GitHub Actions OIDC 交换尚未启用。首版将使用一个经过审核的工作流、Tailnet 运行器和短期 CI 租约。",
+    "resources_read_spec": "阅读规范"
   }
 }

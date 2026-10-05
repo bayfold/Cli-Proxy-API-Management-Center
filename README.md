@@ -111,6 +111,16 @@ Use `bun run preview` to preview locally. Prefer an HTTP server over opening the
 
 </details>
 
+## Bayfold company integration
+
+[Component specification](docs/company-gateway.md) ·
+[GitHub Actions OIDC spec](docs/ci-oidc.md) (design only) ·
+[macOS quota widget](https://github.com/bayfold/CLIProxyPoolWidget)
+
+The `company` branch adds authenticated company views while preserving the
+standalone upstream interface. Company mode uses member identity rather than an
+instance management key. Documentation links are available in the portal.
+
 ## Development
 
 ```bash

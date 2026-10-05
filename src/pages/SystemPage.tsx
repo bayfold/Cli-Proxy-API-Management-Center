@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { COMPANY_MODE } from '@/features/company/mode';
+import { CompanyResourceLinks } from '@/features/company/CompanyResources';
 import { Modal } from '@/components/ui/Modal';
 import { ToggleSwitch } from '@/components/ui/ToggleSwitch';
 import { IconGithub, IconBookOpen, IconExternalLink, IconCode } from '@/components/ui/icons';
@@ -349,6 +350,7 @@ export function SystemPage() {
         </Card>
 
         <Card title={t('system_info.quick_links_title')}>
+          {COMPANY_MODE && <CompanyResourceLinks />}
           <p className={styles.sectionDescription}>{t('system_info.quick_links_desc')}</p>
           <div className={styles.quickLinks}>
             <a

@@ -721,6 +721,15 @@ export function MainLayout({ company }: { company?: CompanyLayout } = {}) {
           metaKey: 'nav_meta.system_info',
           icon: sidebarIcons.system,
         },
+        ...(companyMode
+          ? [
+              {
+                path: '/company-resources',
+                labelKey: 'company.resources_title',
+                icon: sidebarIcons.system,
+              },
+            ]
+          : []),
       ],
     },
     ...(pluginPageNavItems.length > 0
