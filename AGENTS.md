@@ -4,6 +4,13 @@
 
 This is a React 19 + TypeScript + Vite management frontend for CLI Proxy API, not the proxy itself. It exclusively uses the backend v8 Management API under `/v8/management` and the v8 configuration layout; do not add v0 fallbacks or legacy config adapters. Plugin resources and custom HTTP extensions are exceptions: preserve their backend-declared paths.
 
+Company mode also uses the typed `/api/v1` identity, custody, key and usage API.
+It signs in through Tailscale and sends same-origin management requests through
+the Go authorization bridge, without accepting or persisting management keys.
+Run `bun run verify` in standalone mode, then `VITE_COMPANY_GATEWAY=true bun run
+build` before company browser tests or deployment; do not run those builds in
+parallel against the same artifact directory.
+
 - `src/features/`: feature-owned pages, components, hooks, types, and logic. Current features include `dashboard`, `providers`, `authFiles`, `quota`, `config`, and `plugins`. Prefer this layout for new feature work.
 - `src/pages/`: existing route pages outside the feature layout. Follow nearby conventions when modifying these; do not migrate unrelated code.
 - `src/components/`, `src/hooks/`, `src/utils/`: shared UI, hooks, and utilities. Keep feature-specific code within its feature rather than promoting it prematurely.
