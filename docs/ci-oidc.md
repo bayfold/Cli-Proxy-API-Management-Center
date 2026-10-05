@@ -1,186 +1,172 @@
-# GitHub Actions OIDC: one reviewed workflow, one short CI lease
+# GitHub Actions: connected repositories and short CI leases
 
-Status: implemented, 5 October 2026; **disabled until a workload is configured**.
-The exchange endpoint and `company-gateway-ci` runner helper reuse existing
-leases and model authorization. Start with one `workflow_dispatch` job on an
-existing self-hosted tailnet runner, one repository and one configured `kind: ci`
-principal. A real workflow canary and host trust configuration remain rollout steps.
+Implemented, 5 October 2026. Company admins manage multiple exact repository /
+workflow policies in **GitHub Actions** in the management UI. Trust lives in the
+existing private SQLite database and changes take effect without a restart.
+New policies start disabled. With no enabled policy, the exchange returns `404`.
 
-## Initial scope
+## Admin setup
 
-The job obtains a GitHub-signed identity proof, exchanges it for a 15-minute
-gateway lease, and runs its command with that lease. No long-lived gateway
-credential belongs in the job environment. The runner is already enrolled in
-Tailscale, so this version needs no Tailscale action, public ingress or new node.
-A tailnet network grant only reaches the gateway HTTPS listener; it does not
-identify the job or grant model access.
+1. Open **GitHub Actions → GitHub App settings**. Register a GitHub App with
+   **Metadata: read-only** repository permission, no other permissions, webhooks
+   disabled, and expiring user access tokens enabled. Use the HTTPS callback URL
+   shown by the UI. The callback is reached by the admin's browser through the
+   existing tailnet; public gateway ingress is unnecessary.
+2. Enter the app's Client ID, numeric App ID, slug and client secret, plus the
+   gateway's HTTPS origin. Settings are revisioned in SQLite. The secret is
+   encrypted on the server and never returned or persisted in browser storage.
+   Changing app settings clears existing GitHub connections, not workload rules.
+3. Install the app on selected repositories, then **Connect GitHub**. Repository
+   selection includes only repositories accessible to both the installed app
+   and the connected admin's GitHub account. Use **Refresh repositories** after
+   changing installation access. Reconnect after the eight-hour connection
+   expires; refresh tokens are deliberately not retained.
+4. Select a repository, exact `.github/workflows/*.yml` or `*.yaml` file,
+   protected environment, audience and one gateway model. Create the disabled
+   policy, review it, then enable it. Enabling rechecks current GitHub access and
+   the repository's immutable ID, owner ID and full name. Rename/transfer requires
+   recreating the policy rather than silently broadening trust.
+5. Install `company-gateway-ci` and the approved command on the existing
+   self-hosted tailnet runner. Configure the workflow below and perform a
+   separately authorized, bounded real job canary.
 
-The CI principal has one approved model, `allow_shared: true`, concurrency one
-and no operator access. It consumes only explicitly permitted shared accounts;
-SQLite account ownership and provider credentials in CLIProxyAPI stay
-unchanged. Concurrent requests across all leases for this principal still share
-its concurrency limit and the gateway's global CI reservation. This limits
-concurrency, not total tokens or spending.
+GitHub documents [GitHub App user authorization and PKCE](https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/generating-a-user-access-token-for-a-github-app)
+and the [installation repository listing](https://docs.github.com/en/rest/apps/installations).
+Connecting GitHub selects repositories; it does not sign users into the gateway
+or automatically grant Actions jobs access. Company membership and admin roles
+still come from the gateway's existing authenticated Tailscale identity.
 
-Trust the reviewed workflow, not arbitrary repository content. Initially permit
-only manual dispatch from `refs/heads/main`, using a protected `agent-ci`
-environment. Protect changes to the workflow. Do not execute PR-controlled code
-on this runner. Workflow identity does not distinguish a YAML job name: only the
-one reviewed job receives `id-token: write` and the protected environment. A
-matching environment claim does not establish which reviewer rules GitHub used;
-those rules must be configured and checked separately.
+## Workload policy and isolation
 
-## Exchange and private configuration
+Each policy has a generated CI principal, one allowed model, concurrency one,
+shared-account access and no management privileges. Multiple repositories and
+workflows are supported, with up to 128 nondeleted policies. Their requests also
+share the existing global CI concurrency reservation. This controls concurrency,
+not total tokens or spending. Enabling requires positive `max_ci_concurrent` in
+host capacity configuration; global capacity/model enrollment remain host policy.
 
-`POST /api/v1/workload-exchanges` is registered on the tailnet-only public listener **before
-ordinary authentication and `/api/v1/` dispatch** in `Server.handle`. This is the
-only unauthenticated identity-exchange route, and is unavailable when the new
-configuration is absent. It accepts JSON only, rejects unknown fields/trailing
-JSON, limits the body to 32 KiB and allows no issuer, principal or scope supplied
-by the caller:
+The initial restrictions remain explicit: `refs/heads/main`,
+`workflow_dispatch`, a protected GitHub environment and
+`runner_environment: self-hosted`. Hosted runners, reusable workflows, wildcard
+trust, renewal and spending caps are not enabled by this change. Protect workflow
+changes and execute only reviewed code. A workflow identity does not identify
+an individual YAML job: only the approved job should receive `id-token: write`
+and the protected environment. Configure GitHub environment protection rules
+separately; a matching claim does not establish its reviewer rules.
+
+Changing, disabling or deleting a policy increments its revision, invalidates
+existing leases/routing tickets and cancels active requests. Disabling/deleting
+works without GitHub connectivity. Disconnecting GitHub removes repository
+selection credentials; existing policies remain until explicitly changed.
+SQLite preserves custody and sharing, while AI provider credentials remain only
+in CLIProxyAPI.
+
+## Exchange contract
+
+`POST /api/v1/workload-exchanges` is the only unauthenticated identity exchange,
+on the existing tailnet listener. It runs before normal `/api/v1` authentication.
+JSON only, 32 KiB maximum, unknown fields/trailing JSON rejected:
 
 ```json
 {"provider":"github_oidc","id_token":"<GitHub JWT>"}
 ```
 
-Return `201` with the existing `{token,id,expires_at}` lease response and
-`Cache-Control: no-store`. `expires_at` is Unix seconds. Issue the existing
-HMAC-signed `kind: lease` grant for the mapped principal, using the current
-process epoch and exactly 900 seconds of lifetime. Clients treat the token as
-opaque; it is not a new GitHub access token. Reuse the signer, authentication,
-revocation and stream deadline handling. A valid proof can expire before the
-lease; the lease still has its independent hard deadline.
+After signature verification, the gateway finds one enabled SQLite policy that
+matches the exact repository ID, owner ID, workflow ref, git ref, event,
+environment and single audience. Repository/owner identity is obtained from
+GitHub API metadata during selection, never browser-supplied labels or IDs other
+than the selected repository selector. Immutable metadata is rechecked when
+creating/enabling trust, with connection revisions checked inside the database
+transaction. Policy verification and proof consumption/signing are serialized
+against policy changes.
 
-One optional private configuration object describes exactly one workload.
-Omitting it leaves the exchange route unavailable (`404`):
+Success is `201 {token,id,expires_at}`, `Cache-Control: no-store`; `expires_at`
+is Unix seconds. The opaque HMAC lease lasts exactly 900 seconds, uses the
+current process epoch, and carries policy ID/revision. Ordinary authentication,
+model restrictions, revocation and native stream deadlines are reused. A proof
+can expire before its lease. No GitHub access token reaches the job or client.
 
-```json
-{
-  "github_oidc": {
-    "audience": "company-gateway-ci",
-    "repository_owner_id": "123456",
-    "repository_id": "456789",
-    "workflow_ref": "example-org/example-repo/.github/workflows/agent-review.yml@refs/heads/main",
-    "ref": "refs/heads/main",
-    "event_name": "workflow_dispatch",
-    "environment": "agent-ci",
-    "principal_id": "ci-review"
-  }
-}
-```
+Errors: `400 invalid_exchange`, `401 invalid_identity_proof`,
+`403 workload_not_allowed`, `409 proof_already_used`, `429 exchange_limited`,
+`503 identity_verifier_unavailable`; no active policy returns `404 not_found`.
 
-These are illustrative values, not deployment configuration. Validate every
-field, require exactly the initial ref/event, and resolve `principal_id` to an
-enabled configured CI principal with positive global CI capacity. Set `auth_mode: "github_oidc"` on the configured member:
-that mode requires `kind: ci`, no `token_sha256`, no `tailscale_login`, no
-operator flag, and the matching workload configuration. Other members retain
-today's validation. Credentialless principals are accepted only in this mode with the matching
-workload configuration. Use `memberByID` again at
-exchange time and on lease authentication; never create a human principal from
-GitHub claims. Policy changes use the existing service restart flow.
+## Proof verification and replay
 
-An illustrative member paired with the above workload is:
+Issuer and JWKS URL are pinned to `https://token.actions.githubusercontent.com`
+and `/.well-known/jwks`. RS256 only; bounded nonempty `kid`; no token-supplied
+key/discovery URL. Pinned `coreos/go-oidc/v3` v3.21.0 and `go-jose/v4` v4.1.4
+verify issuer, signature and expiry. Because policies can have different
+audiences, exactly one audience is checked against the matched SQLite rule
+before signing. No audience membership or wildcard grants are accepted.
 
-```json
-{
-  "id": "ci-review",
-  "kind": "ci",
-  "auth_mode": "github_oidc",
-  "models": ["approved-model"],
-  "max_concurrent": 1,
-  "allow_shared": true
-}
-```
+Require well-typed `exp`, `iat`, `nbf`, `jti`, nonempty bounded `sub` and numeric
+bounded run/attempt IDs. No already-expired proof is accepted, including at
+atomic consumption. Future issuance/not-before allowance is 30 seconds; proof
+age maximum ten minutes and lifetime maximum twenty minutes. Hosted and reusable
+workflow claims fail closed. Qualify real GitHub claim shapes/time bounds before
+rollout without logging the proof. [GitHub OIDC reference](https://docs.github.com/en/actions/reference/security/oidc).
 
-The model must already exist in the gateway's model map, and global
-`max_ci_concurrent` must be positive. Keep this configuration in the host's
-existing private config file; do not commit host configuration or credentials.
-Restart through the normal release process after configuring trust. The helper
-binary is included in releases, and can be built separately for the runner:
+JWKS fetches: two-second HTTPS timeout, no redirects, 256 KiB response, at most
+sixteen RSA signing keys, serialized refresh, ten-minute freshness and at most
+one fetch attempt per minute (including failures/unknown-key floods). Matching
+fresh keys work offline; stale keys cannot authorize. Four concurrent exchanges
+and sixty starts per minute process-wide bound verifier work.
+
+Atomically consume proof `jti` under the fixed issuer until expiry, before
+signing, in a bounded 4,096-entry map shared by all workloads/audiences. Concurrent
+replay returns `409`; expired entries are pruned and a full map fails closed.
+If the response is lost, obtain a fresh proof. Restart invalidates leases but
+forgets consumed proofs, so a still-valid captured proof can be re-exchanged.
+A compromised approved job can request fresh proofs. Durable replay, one lease
+per run and total spending caps remain separate extensions.
+
+## GitHub Connect security and storage
+
+The GitHub App OAuth flow uses PKCE S256, ten-minute single-use state, an HttpOnly
+Secure SameSite cookie, and the authenticated company admin. State and callbacks
+are bound to settings revisions and persistent operation generations. A
+connection change supersedes in-flight callbacks and repository selection;
+stale disconnect/update revisions return `412`. API access requires an unscoped
+admin identity, never a CI lease or subscription access key. Mutations require
+same-origin JSON.
+
+GitHub client secrets, user access tokens and PKCE verifiers are AES-GCM encrypted
+with separate purpose/member binding. The key is derived from the existing
+private signing key with a distinct purpose. Back up the private config and
+SQLite together. Signing-key rotation requires reentering the GitHub client
+secret and reconnecting accounts; no encrypted credentials are exported to UI
+responses or logs. App user tokens expire after eight hours; no refresh token is
+stored. GitHub HTTP uses fixed service endpoints, no redirects, eight-second
+request timeouts, two MiB response bounds, explicit pagination limits and a
+fifteen-second overall repository lookup deadline.
+
+SQLite schema 4 adds workload policies/import metadata/audit and GitHub settings,
+connections, OAuth state/generations/audit tables. AI provider tokens remain in
+CLIProxyAPI. The old single `github_oidc` private-config policy is imported once,
+with a durable marker and deletion tombstones; a deleted policy is never
+resurrected by restart. Legacy config is bootstrap compatibility, not live
+policy authority. New UI policies need no private-config member entries.
+
+## Runner helper
+
+Release packages include the helper; build independently for a runner with:
 
 ```sh
 go build -trimpath -o company-gateway-ci ./cmd/company-gateway-ci
 ```
 
-## Verification and replay protection
+It uses the runner's `ACTIONS_ID_TOKEN_REQUEST_URL` / token and URL-encoded
+`COMPANY_GATEWAY_AUDIENCE` to obtain a proof, exchanges it, and starts the command.
+Proof/lease stay in memory and are masked with GitHub workflow commands before
+output. Bounded HTTPS requests prohibit redirects/URL credentials and avoid
+secrets in argv/files. The child receives `OPENAI_API_KEY=<lease>` and
+`OPENAI_BASE_URL=<gateway>/v1`; GitHub proof-request variables are removed.
+Approved job code still has its own GitHub privileges. No long-lived fallback,
+automatic renewal, job outputs or token artifacts are created.
 
-Pin issuer `https://token.actions.githubusercontent.com` and JWKS URL
-`https://token.actions.githubusercontent.com/.well-known/jwks` in code. Require
-RS256, a bounded nonempty `kid`, valid signature, exact issuer and exactly one
-configured audience. Ignore token-supplied key/discovery URLs. GitHub currently
-advertises these endpoints and RS256 in its [discovery
-metadata](https://token.actions.githubusercontent.com/.well-known/openid-configuration).
-
-Require well-typed `exp`, `iat`, `nbf`, `jti` and nonempty `sub`. Reject expiration,
-future use/issuance beyond 30 seconds, proofs older than ten minutes and
-lifetimes over twenty minutes. Never accept an already expired proof through a
-skew allowance. Qualify the age/lifetime bounds with a real job before rollout.
-The implementation pins `coreos/go-oidc/v3` v3.21.0 and `go-jose/v4` v4.1.4, with ordinary issuer,
-audience and expiry checks enabled plus these stricter checks: its [verifier
-source](https://github.com/coreos/go-oidc/blob/v3/oidc/verify.go) accepts audience
-membership and a five-minute not-before allowance by default.
-
-After signature verification, match every configured claim exactly: immutable
-owner/repository IDs, workflow ref, git ref, event and environment. Do not
-identify the workload by actor, repository display name or parsing `sub`. Also
-require `runner_environment: self-hosted` in this first version and bounded
-`run_id`/`run_attempt` for audit. Reject reusable-workflow claims initially;
-caller/called workflow policy is a separate extension. GitHub documents these
-claims and custom audiences in its [OIDC
-reference](https://docs.github.com/en/actions/reference/security/oidc).
-
-Keep verifier work bounded: two-second HTTPS timeout, no redirects, 256 KiB JWKS
-response, at most sixteen signing keys, single-flight refresh, ten-minute key
-freshness, and at most one forced refresh per minute for an unknown key. A
-fresh cached matching key can verify without network I/O; without one, refresh
-failure returns `503` and issues no lease. Limit verification concurrency to
-four and exchange starts to sixty per minute process-wide. These are server
-constants, not an initial configuration surface. A custom bounded key-set adapter supplies cache freshness, serialized refreshes
-and response limits while go-jose verifies signatures. Fetch failures are also
-throttled to one attempt per minute. A matching fresh key remains usable during
-an outage; stale keys fail closed.
-
-After all checks, atomically consume `(issuer,jti)` until proof expiry **before
-signing**. Use a bounded in-memory map of 4,096 entries, prune expired entries
-and fail closed when full. Concurrent reuse returns `409 proof_already_used`.
-If a successful response is lost, obtain a fresh proof rather than store lease
-tokens for idempotency. This is deliberately single-process replay control:
-restart invalidates issued leases but forgets consumed proofs, so a captured
-still-valid proof can be exchanged again after restart. An approved compromised
-job can also request fresh proofs. Durable replay storage, one lease per run
-and spending caps are outside this first version.
-
-## Runner helper and workflow
-
-The small Go command, `company-gateway-ci run -- <command> [args...]`, is built
-and installed through the repository's normal release process. It reads
-`COMPANY_GATEWAY_URL` and `COMPANY_GATEWAY_AUDIENCE`, obtains the GitHub proof
-using `ACTIONS_ID_TOKEN_REQUEST_URL`/`ACTIONS_ID_TOKEN_REQUEST_TOKEN` with a
-URL-encoded custom audience, exchanges it, and starts the requested child.
-GitHub documents this token-request mechanism and job-scoped permissions in its
-[OIDC setup guide](https://docs.github.com/en/actions/how-tos/secure-your-work/security-harden-deployments/oidc-in-cloud-providers).
-
-Keep proof and lease in memory; mask both through GitHub's `add-mask` workflow
-command before any diagnostic output. Use HTTP library headers/bodies, never
-shell commands or token-bearing argv/files. Use the runner-provided HTTPS token-request URL; it is distinct from the
-issuer/JWKS URL pinned by the gateway. Reject URL credentials/fragments, verify
-gateway HTTPS and prohibit redirects for both requests. Set an explicit request
-timeout and response bound. The child receives `OPENAI_API_KEY=<lease>` and
-`OPENAI_BASE_URL=<gateway>/v1`; initially use an OpenAI-compatible client for the
-one approved model. Remove the GitHub token-request variables from the child's
-environment, and do not publish the lease through job outputs or artifacts.
-This reduces accidental exposure; approved workflow code still has its own
-GitHub token-request privileges.
-
-The helper forwards termination signals, preserves the child's exit code, and
-best-effort revokes on exit using `DELETE /api/leases/{id}`, the lease as bearer
-and `{token:<lease>}` as JSON. Current authentication permits this self-revocation;
-no bootstrap credential is needed. Expiry handles killed/cancelled runners.
-There is no automatic renewal. Reject malformed exchange responses and abort if
-exchange fails; do not fall back to a long-lived credential.
-
-Illustrative workflow; configure the host and install the helper/approved command
-on the runner before using it:
+The helper forwards termination signals, preserves the child's exit status and
+best-effort revokes on exit through `DELETE /api/leases/{id}` using its own lease.
+Hard expiry handles killed/cancelled runners.
 
 ```yaml
 name: agent-review
@@ -202,40 +188,14 @@ jobs:
         run: company-gateway-ci run -- agent-review-command
 ```
 
-## Implementation and acceptance
+## Validation
 
-1. Configuration validation, bounded verifier/key adapter and consumed-proof
-   map reuse the existing lease grant and enabled-principal lookup.
-2. The exchange route returns `400 invalid_exchange`, `401
-   invalid_identity_proof`, `403 workload_not_allowed`, `409 proof_already_used`,
-   `429 exchange_limited` and `503 identity_verifier_unavailable`. Audit only
-   principal, verified repository/run/attempt IDs, lease ID/expiry and outcome;
-   never JWTs, headers, tokens or arbitrary claim dumps.
-3. The helper has synthetic HTTPS job tests, including child environment,
-   cancellation and cleanup. Required repository checks precede a separately
-   authorized, bounded real workflow canary.
-
-Automated tests use generated RSA keys, local fake JWKS, fake clocks and private
-temporary state. Cover valid identity; wrong/missing issuer, audience, algorithm,
-signature and claims; every workload mismatch; rejected hosted/reusable/PR jobs;
-key rotation, redirects, timeout, response limits and unknown-key floods;
-concurrent replay, replay-map exhaustion and documented restart behavior.
-Verify helper masking, child environment, signal/exit forwarding, self-revocation
-and absence of token-bearing argv/logs. Existing lease tests must still prove
-no lease chaining, forbidden-model denial, member/management isolation,
-expiry/revocation stream cancellation and aggregate CI admission across leases.
-No automated test obtains a real GitHub proof, uses provider quota or modifies a
-remote service.
-
-Before rollout, supply the actual immutable repository IDs, approved workflow,
-protected environment, CI principal/model and installed command. Verify GitHub
-claim shapes/time bounds without logging the proof, then remove any old
-bootstrap credential from that job's environment. These are deployment choices,
-not reasons to expand the implementation.
-
-Later additions are independent: more allowlisted workloads/events, longer-job
-renewal, reusable workflows with exact caller and `job_workflow_ref`/SHA checks,
-or hosted runners with separately configured Tailscale federation. Hosted
-network enrollment and gateway identity exchange require separate audiences.
-No federation registry, general OAuth server, new database, policy UI or hosted
-runner enrollment is required to ship the first version.
+Tests use generated RSA keys, synthetic private SQLite/state, fake clocks,
+local TLS GitHub/JWKS APIs and mocked company browser boundaries. They cover
+exact multi-repository policies/models/audiences; all identity/time/replay/key
+bounds; migration atomicity/legacy import/deletion; revision races; native stream
+cancellation; admin isolation; OAuth PKCE/cookie/member/state/reconnect races;
+encryption, HTTP bounds and secret-free UI persistence. Both Go modules,
+Playwright company pages and real native SDK adapter fixtures remain required.
+No automated test obtains a real GitHub proof, spends live provider quota or
+modifies a remote service.

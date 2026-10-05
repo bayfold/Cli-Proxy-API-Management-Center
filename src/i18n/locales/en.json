@@ -2402,7 +2402,7 @@
     "resources_hint": "Public source, connection guidance and implementation plans.",
     "resources_components": "Components and specifications",
     "resources_access": "The UI and widget are public Bayfold forks. Gateway access still requires your company membership.",
-    "resources_oidc_status": "Implemented: GitHub Actions OIDC requires a configured, reviewed workflow and a tailnet runner. Jobs receive a short CI lease.",
+    "resources_oidc_status": "Implemented: company admins can connect GitHub and manage multiple repository/workflow policies in GitHub Actions. Jobs receive a short CI lease.",
     "resources_read_spec": "Read the specification",
     "ci_title": "GitHub Actions",
     "ci_hint": "Connect repositories and approve exactly which jobs may use shared subscriptions.",
@@ -2462,7 +2462,10 @@
       "github_unavailable": "GitHub is unavailable. Existing trust rules are unchanged.",
       "invalid_workload": "Check the workflow path, environment, audience and model.",
       "invalid_github_settings": "Use a GitHub App client ID, numeric App ID and HTTPS gateway URL.",
-      "github_secret_required": "A client secret is required for this GitHub App."
-    }
+      "github_secret_required": "A client secret is required for this GitHub App.",
+      "invalid_workload_policy": "Check the workflow path, environment, audience and model.",
+      "github_repository_unavailable": "Reconnect GitHub and verify the repository is still accessible with the same owner and name."
+    },
+    "ci_refresh_repos": "Refresh repositories"
   }
 }

@@ -2426,7 +2426,7 @@
     "resources_hint": "公開原始碼、連線指南與實作計畫。",
     "resources_components": "元件與規格",
     "resources_access": "介面與小工具是 Bayfold 的公開分支。存取閘道仍需公司成員身分。",
-    "resources_oidc_status": "已實作：GitHub Actions OIDC 需要設定經過審核的工作流程及 Tailnet 執行器。作業會取得短期 CI 租約。",
+    "resources_oidc_status": "已實作：公司管理員可在 GitHub Actions 中連接 GitHub 並管理多個儲存庫/工作流程規則。作業會取得短期 CI 租約。",
     "resources_read_spec": "閱讀規格",
     "ci_title": "GitHub Actions",
     "ci_hint": "連接儲存庫並明確核准哪些作業可使用共享訂閱。",
@@ -2486,7 +2486,10 @@
       "github_unavailable": "GitHub 目前無法使用。現有信任規則保持不變。",
       "invalid_workload": "請檢查工作流程路徑、環境、對象及模型。",
       "invalid_github_settings": "請使用 GitHub App 用戶端 ID、數字應用程式 ID 及 HTTPS 閘道 URL。",
-      "github_secret_required": "此 GitHub App 需要用戶端密鑰。"
-    }
+      "github_secret_required": "此 GitHub App 需要用戶端密鑰。",
+      "invalid_workload_policy": "請檢查工作流程路徑、環境、對象及模型。",
+      "github_repository_unavailable": "請重新連接 GitHub 並確認儲存庫仍可存取且擁有者及名稱未變。"
+    },
+    "ci_refresh_repos": "重新整理儲存庫"
   }
 }

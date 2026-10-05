@@ -90,6 +90,18 @@ export function CompanyCI() {
     setError('');
     setSettingsOpen(false);
     setEditing(null);
+    setBusy(false);
+    setModels([]);
+    setCapacity(0);
+    setRepository('');
+    setPolicy(initialPolicy);
+    setSettings({
+      client_id: '',
+      client_secret: '',
+      app_id: '',
+      app_slug: '',
+      origin: location.origin,
+    });
     if (admin) void load().catch((failure) => generation === epoch.current && report(failure));
     return () => {
       epoch.current++;
@@ -163,6 +175,11 @@ export function CompanyCI() {
               {t('company.ci_connect')}
             </Button>
             {github.connected && (
+              <Button variant="secondary" disabled={busy} onClick={() => void act(async () => {})}>
+                {t('company.ci_refresh_repos')}
+              </Button>
+            )}
+            {github.connected && (
               <Button
                 variant="secondary"
                 disabled={busy}
@@ -186,7 +203,9 @@ export function CompanyCI() {
               onSubmit={(event) => {
                 event.preventDefault();
                 void act(async () => {
+                  const generation = epoch.current;
                   await client.configure({ ...settings, revision: github.revision });
+                  if (generation !== epoch.current) return;
                   setSettings((current) => ({ ...current, client_secret: '' }));
                   setSettingsOpen(false);
                 });
@@ -258,8 +277,10 @@ export function CompanyCI() {
           onSubmit={(event) => {
             event.preventDefault();
             void act(async () => {
+              const generation = epoch.current;
               if (editing) await client.updateWorkload(editing, policy, editing.enabled);
               else await client.createWorkload(repository, policy);
+              if (generation !== epoch.current) return;
               setEditing(null);
               setRepository('');
               setPolicy({ ...initialPolicy, model: models[0] || '' });

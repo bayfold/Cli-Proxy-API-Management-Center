@@ -2400,7 +2400,7 @@
     "resources_hint": "公开源码、连接指南和实现方案。",
     "resources_components": "组件与规范",
     "resources_access": "界面和小组件是 Bayfold 的公开分支。网关访问仍需公司成员身份。",
-    "resources_oidc_status": "已实现：GitHub Actions OIDC 需要配置经过审核的工作流和 Tailnet 运行器。任务会获得短期 CI 租约。",
+    "resources_oidc_status": "已实现：公司管理员可在 GitHub Actions 中连接 GitHub 并管理多个仓库/工作流规则。任务会获得短期 CI 租约。",
     "resources_read_spec": "阅读规范",
     "ci_title": "GitHub Actions",
     "ci_hint": "连接仓库并明确批准哪些任务可以使用共享订阅。",
@@ -2460,7 +2460,10 @@
       "github_unavailable": "GitHub 当前不可用。现有信任规则保持不变。",
       "invalid_workload": "请检查工作流路径、环境、受众和模型。",
       "invalid_github_settings": "请使用 GitHub App 客户端 ID、数字应用 ID 和 HTTPS 网关 URL。",
-      "github_secret_required": "此 GitHub App 需要客户端密钥。"
-    }
+      "github_secret_required": "此 GitHub App 需要客户端密钥。",
+      "invalid_workload_policy": "请检查工作流路径、环境、受众和模型。",
+      "github_repository_unavailable": "请重新连接 GitHub 并确认仓库仍可访问且所有者和名称未变。"
+    },
+    "ci_refresh_repos": "刷新仓库"
   }
 }

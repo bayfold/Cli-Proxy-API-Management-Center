@@ -62,14 +62,14 @@ promises unlimited or automatically restored quota.
 
 ## GitHub Actions identity
 
-[GitHub Actions OIDC specification](ci-oidc.md): implemented, with host workload
-configuration required before enabling. The exchange turns a GitHub proof from one reviewed manual
-workflow on an existing tailnet runner for a short CI lease. It uses exact
-immutable repository/workflow claims and reuses gateway model authorization,
-concurrency limits, revocation and stream deadlines. No long-lived gateway
-credential is placed in the job. Network membership alone is not workload
-identity. The spec defines verification, replay protection, helper behavior and
-synthetic acceptance tests.
+[GitHub Actions OIDC specification](ci-oidc.md): implemented. Company admins
+connect a metadata-only GitHub App, select repositories and manage exact
+workflow/environment/model policies in the **GitHub Actions** UI section.
+Multiple policies and generated CI identities live in SQLite, with disabled-first
+creation, revision checks and immediate lease/stream revocation on policy changes.
+GitHub connection tokens are encrypted server-side and used only for repository
+selection; jobs receive short gateway leases. Workflow trust and membership
+remain separate. See the spec for app registration, runner setup and migration.
 
 ## Builds, testing and upstream contributions
 
