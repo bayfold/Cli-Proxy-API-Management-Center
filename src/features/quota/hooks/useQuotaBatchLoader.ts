@@ -8,6 +8,8 @@
  * 提交按 provider 分组进行 —— 快的提供商先落地，不等慢的。
  */
 
+import { quotaCacheFromError } from '../cacheMetadata';
+import type { QuotaCacheMetadata } from '@/types';
 import { useCallback, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { captureQuotaCacheGeneration, commitIfQuotaCacheCurrent } from '@/stores';
@@ -25,6 +27,7 @@ interface BatchFetchResult {
   data?: unknown;
   error?: string;
   errorStatus?: number;
+  quotaCache?: QuotaCacheMetadata;
 }
 
 export function useQuotaBatchLoader() {
@@ -79,6 +82,7 @@ export function useQuotaBatchLoader() {
                     status: 'error',
                     error: message,
                     errorStatus: getStatusFromError(err),
+                    quotaCache: quotaCacheFromError(err),
                   };
                 }
               })
@@ -96,10 +100,13 @@ export function useQuotaBatchLoader() {
                     nextState[result.cacheKey] =
                       result.status === 'success'
                         ? adapter.buildSuccessState(result.data)
-                        : adapter.buildErrorState(
-                            result.error || t('common.unknown_error'),
-                            result.errorStatus
-                          );
+                        : {
+                            ...adapter.buildErrorState(
+                              result.error || t('common.unknown_error'),
+                              result.errorStatus
+                            ),
+                            quotaCache: result.quotaCache,
+                          };
                     committedStates.set(result.cacheKey, nextState[result.cacheKey]);
                   },
                   result.name

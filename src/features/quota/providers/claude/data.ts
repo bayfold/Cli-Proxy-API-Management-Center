@@ -6,6 +6,7 @@
 import type { TFunction } from 'i18next';
 import type {
   AuthFileItem,
+  QuotaCacheMetadata,
   ClaudeExtraUsage,
   ClaudeProfileResponse,
   ClaudeQuotaState,
@@ -32,6 +33,7 @@ import { normalizeAuthIndex } from '@/utils/authIndex';
 import type { QuotaProviderData } from '../types';
 
 export type ClaudeQuotaData = {
+  quotaCache?: QuotaCacheMetadata;
   windows: ClaudeQuotaWindow[];
   extraUsage?: ClaudeExtraUsage | null;
   planType?: string | null;
@@ -183,7 +185,7 @@ const fetchClaudeQuota = async (file: AuthFileItem, t: TFunction): Promise<Claud
   const result = usageResult.value;
 
   if (result.statusCode < 200 || result.statusCode >= 300) {
-    throw createStatusError(getApiCallErrorMessage(result), result.statusCode);
+    throw createStatusError(getApiCallErrorMessage(result), result.statusCode, result.quotaCache);
   }
 
   const payload = parseClaudeUsagePayload(result.body ?? result.bodyText);
@@ -201,7 +203,12 @@ const fetchClaudeQuota = async (file: AuthFileItem, t: TFunction): Promise<Claud
         )
       : null;
 
-  return { windows, extraUsage: payload.extra_usage, planType };
+  return {
+    windows,
+    extraUsage: payload.extra_usage,
+    planType,
+    ...(result.quotaCache ? { quotaCache: result.quotaCache } : {}),
+  };
 };
 
 export const CLAUDE_CONFIG: QuotaProviderData<ClaudeQuotaState, ClaudeQuotaData> = {
@@ -214,6 +221,7 @@ export const CLAUDE_CONFIG: QuotaProviderData<ClaudeQuotaState, ClaudeQuotaData>
   buildLoadingState: () => ({ status: 'loading', windows: [] }),
   buildSuccessState: (data) => ({
     status: 'success',
+    ...(data.quotaCache ? { quotaCache: data.quotaCache } : {}),
     windows: data.windows,
     extraUsage: data.extraUsage,
     planType: data.planType,

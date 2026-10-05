@@ -4,6 +4,7 @@
  * generation-guarded commit、成功/失败通知），仅把 config 换成 adapter。
  */
 
+import { quotaCacheFromError, notifyQuotaRefresh } from '@/features/quota/cacheMetadata';
 import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -32,6 +33,7 @@ export function useQuotaActions(disableControls: boolean) {
       const cacheKey = getQuotaCacheKey(file);
       if (resettingQuotaName === cacheKey) return;
       if (getQuotaState(adapter, file)?.status === 'loading') return;
+      if ((getQuotaState(adapter, file)?.quotaCache?.retryAt ?? 0) > Date.now()) return;
       const cacheGeneration = captureQuotaCacheGeneration(file.name);
       const setQuota = getQuotaSetter(adapter);
 
@@ -49,7 +51,7 @@ export function useQuotaActions(disableControls: boolean) {
             [cacheKey]: successState,
           }));
           void enrichQuotaInBackground(adapter, file, data, successState, t);
-          showNotification(t('auth_files.quota_refresh_success', { name: file.name }), 'success');
+          notifyQuotaRefresh(successState, file.name, t, showNotification);
         });
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : t('common.unknown_error');
@@ -57,7 +59,10 @@ export function useQuotaActions(disableControls: boolean) {
         commitIfQuotaCacheCurrent(cacheGeneration, () => {
           setQuota((prev) => ({
             ...prev,
-            [cacheKey]: adapter.buildErrorState(message, status),
+            [cacheKey]: {
+              ...adapter.buildErrorState(message, status),
+              quotaCache: quotaCacheFromError(err),
+            },
           }));
           showNotification(
             t('auth_files.quota_refresh_failed', { name: file.name, message }),

@@ -8,7 +8,7 @@
 import type { ComponentType } from 'react';
 import type { TFunction } from 'i18next';
 import { useQuotaStore } from '@/stores';
-import type { AuthFileItem } from '@/types';
+import type { AuthFileItem, QuotaCacheMetadata } from '@/types';
 import type { QuotaBodyProps } from '../types';
 import type { QuotaProviderType, QuotaStore } from './types';
 import { ANTIGRAVITY_CONFIG } from './antigravity/data';
@@ -28,6 +28,7 @@ import { XaiQuotaBody } from './xai/XaiQuotaBody';
 
 /** 所有 provider 额度状态的公共骨架（各 *QuotaState 的结构子集）。 */
 export interface QuotaCardState {
+  quotaCache?: QuotaCacheMetadata;
   status: 'idle' | 'loading' | 'success' | 'error';
   error?: string;
   errorStatus?: number;

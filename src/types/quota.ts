@@ -1,3 +1,11 @@
+/** Nonsecret company gateway cache metadata; epoch timestamps are milliseconds. */
+export interface QuotaCacheMetadata {
+  fetchedAt: number;
+  stale: boolean;
+  retryAt?: number;
+  refreshStatus?: number;
+}
+
 /**
  * Quota management types.
  */
@@ -174,6 +182,7 @@ export interface ClaudeQuotaWindow {
 }
 
 export interface ClaudeQuotaState {
+  quotaCache?: QuotaCacheMetadata;
   status: 'idle' | 'loading' | 'success' | 'error';
   windows: ClaudeQuotaWindow[];
   extraUsage?: ClaudeExtraUsage | null;
@@ -240,6 +249,7 @@ export interface CodexQuotaWindow {
 }
 
 export interface CodexQuotaState {
+  quotaCache?: QuotaCacheMetadata;
   status: 'idle' | 'loading' | 'success' | 'error';
   windows: CodexQuotaWindow[];
   planType?: string | null;

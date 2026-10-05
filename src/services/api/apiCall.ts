@@ -3,6 +3,7 @@
  */
 
 import type { AxiosRequestConfig } from 'axios';
+import type { QuotaCacheMetadata } from '@/types';
 import { apiClient } from './client';
 import { isRecord } from '@/utils/helpers';
 
@@ -16,11 +17,40 @@ export interface ApiCallRequest {
 }
 
 export interface ApiCallResult<T = unknown> {
+  quotaCache?: QuotaCacheMetadata;
   statusCode: number;
   header: Record<string, string[]>;
   bodyText: string;
   body: T | null;
 }
+
+const normalizeQuotaCache = (value: unknown): QuotaCacheMetadata | undefined => {
+  if (
+    !isRecord(value) ||
+    typeof value.stale !== 'boolean' ||
+    typeof value.fetched_at !== 'number' ||
+    !Number.isSafeInteger(value.fetched_at) ||
+    value.fetched_at < 0
+  )
+    return undefined;
+  return {
+    fetchedAt: value.fetched_at,
+    stale: value.stale,
+    retryAt:
+      typeof value.retry_at === 'number' &&
+      Number.isSafeInteger(value.retry_at) &&
+      value.retry_at > 0
+        ? value.retry_at
+        : undefined,
+    refreshStatus:
+      typeof value.refresh_status === 'number' &&
+      Number.isInteger(value.refresh_status) &&
+      value.refresh_status >= 100 &&
+      value.refresh_status <= 599
+        ? value.refresh_status
+        : undefined,
+  };
+};
 
 const normalizeBody = (input: unknown): { bodyText: string; body: unknown | null } => {
   if (input === undefined || input === null) {
@@ -89,6 +119,7 @@ export const apiCallApi = {
 
     return {
       statusCode,
+      ...(response?.quota_cache ? { quotaCache: normalizeQuotaCache(response.quota_cache) } : {}),
       header,
       bodyText,
       body,

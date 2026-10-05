@@ -1563,6 +1563,10 @@
     }
   },
   "quota_management": {
+    "stale_result": "顯示 {{time}} 最後一次成功取得的額度。",
+    "refresh_rate_limited": "額度重新整理受到速率限制，這不表示推理額度已耗盡。",
+    "retry_after": "額度重新整理暫停至 {{time}}。",
+    "refresh_cached": "重新整理失敗，顯示最後一次成功取得的額度。",
     "search_label": "搜尋帳號",
     "search_placeholder": "依檔案名稱或電子郵件搜尋",
     "search_empty_title": "沒有符合的帳號",

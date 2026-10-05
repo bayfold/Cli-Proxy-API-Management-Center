@@ -1,3 +1,6 @@
+import { useNow } from '@/hooks/useNow';
+import { QuotaCacheNotice } from '@/features/quota/components/QuotaCacheNotice';
+import { quotaCacheFromError, notifyQuotaRefresh } from '@/features/quota/cacheMetadata';
 import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useCompanyAccess } from '@/features/company/access';
@@ -56,6 +59,8 @@ export function AuthFileQuotaSection(props: AuthFileQuotaSectionProps) {
     return assertNever(quotaType);
   });
   const quota = storedQuota;
+  const now = useNow(Boolean(quota?.quotaCache?.retryAt));
+  const refreshPaused = (quota?.quotaCache?.retryAt ?? 0) > now;
 
   const updateQuotaState = useQuotaStore(
     (state) => state[adapter.storeSetter] as unknown as QuotaMapUpdater
@@ -66,6 +71,7 @@ export function AuthFileQuotaSection(props: AuthFileQuotaSectionProps) {
     if (isRuntimeOnlyAuthFile(file)) return;
     if (file.disabled) return;
     if (quota?.status === 'loading') return;
+    if ((quota?.quotaCache?.retryAt ?? 0) > Date.now()) return;
 
     const cacheGeneration = captureQuotaCacheGeneration(file.name);
 
@@ -77,11 +83,12 @@ export function AuthFileQuotaSection(props: AuthFileQuotaSectionProps) {
     try {
       const data = await adapter.fetchQuota(file, t);
       commitIfQuotaCacheCurrent(cacheGeneration, () => {
+        const successState = adapter.buildSuccessState(data);
         updateQuotaState((prev) => ({
           ...prev,
-          [cacheKey]: adapter.buildSuccessState(data),
+          [cacheKey]: successState,
         }));
-        showNotification(t('auth_files.quota_refresh_success', { name: file.name }), 'success');
+        notifyQuotaRefresh(successState, file.name, t, showNotification);
       });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : t('common.unknown_error');
@@ -89,7 +96,10 @@ export function AuthFileQuotaSection(props: AuthFileQuotaSectionProps) {
       commitIfQuotaCacheCurrent(cacheGeneration, () => {
         updateQuotaState((prev) => ({
           ...prev,
-          [cacheKey]: adapter.buildErrorState(message, status),
+          [cacheKey]: {
+            ...adapter.buildErrorState(message, status),
+            quotaCache: quotaCacheFromError(err),
+          },
         }));
         showNotification(
           t('auth_files.quota_refresh_failed', { name: file.name, message }),
@@ -103,6 +113,7 @@ export function AuthFileQuotaSection(props: AuthFileQuotaSectionProps) {
     disableControls,
     file,
     quota?.status,
+    quota?.quotaCache?.retryAt,
     showNotification,
     t,
     updateQuotaState,
@@ -188,6 +199,7 @@ export function AuthFileQuotaSection(props: AuthFileQuotaSectionProps) {
 
   return (
     <div className={styles.quotaSection}>
+      <QuotaCacheNotice cache={quota?.quotaCache} />
       {quotaStatus === 'loading' ? (
         <div className={styles.quotaMessage}>{t(`${adapter.i18nPrefix}.loading`)}</div>
       ) : quotaStatus === 'idle' ? (
@@ -220,7 +232,7 @@ export function AuthFileQuotaSection(props: AuthFileQuotaSectionProps) {
               size="sm"
               className={styles.quotaResetCreditButton}
               onClick={() => void refreshQuotaForFile()}
-              disabled={!canRefreshQuota || quotaStatus === 'loading'}
+              disabled={refreshPaused || !canRefreshQuota || quotaStatus === 'loading'}
               loading={quotaStatus === 'loading'}
               title={t('auth_files.quota_refresh_hint')}
             >

@@ -1539,6 +1539,10 @@
     }
   },
   "quota_management": {
+    "stale_result": "Showing the last successful quota from {{time}}.",
+    "refresh_rate_limited": "The quota refresh was rate limited. This does not mean inference quota is exhausted.",
+    "retry_after": "Quota refresh is paused until {{time}}.",
+    "refresh_cached": "Refresh failed; showing the last successful quota.",
     "search_label": "Search accounts",
     "search_placeholder": "Search by filename or email",
     "search_empty_title": "No matching accounts",

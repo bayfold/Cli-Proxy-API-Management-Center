@@ -7,6 +7,8 @@
  * - success：provider Body（穿 QuotaBody.module.scss 全页外衣）。
  */
 
+import { useNow } from '@/hooks/useNow';
+import { QuotaCacheNotice } from '@/features/quota/components/QuotaCacheNotice';
 import { useState, type CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useCompanyAccess } from '@/features/company/access';
@@ -67,6 +69,8 @@ export function QuotaCard(props: QuotaCardProps) {
       ? undefined
       : ({ '--card-delay': `${mountEntranceDelayMs}ms` } as CSSProperties);
 
+  const now = useNow(Boolean(quota?.quotaCache?.retryAt));
+  const refreshPaused = (quota?.quotaCache?.retryAt ?? 0) > now;
   const status = quota?.status ?? 'idle';
   const loading = status === 'loading';
   const claudeReset = useClaudeResetGrants(
@@ -117,6 +121,7 @@ export function QuotaCard(props: QuotaCardProps) {
       </header>
 
       <div className={styles.body}>
+        <QuotaCacheNotice cache={quota?.quotaCache} />
         {entry.type === 'claude' && status === 'success' && (
           <>
             <div className={quotaClasses.codexPlan}>
@@ -193,7 +198,10 @@ export function QuotaCard(props: QuotaCardProps) {
             type="button"
             className={styles.actionPill}
             onClick={onRefresh}
-            disabled={isQuotaRefreshDisabled(canRefresh, loading, resetting || claudeReset.busy)}
+            disabled={
+              refreshPaused ||
+              isQuotaRefreshDisabled(canRefresh, loading, resetting || claudeReset.busy)
+            }
             title={t('auth_files.quota_refresh_hint')}
           >
             <IconRefreshCw size={13} className={loading ? styles.spinning : undefined} />

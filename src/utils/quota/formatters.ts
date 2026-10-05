@@ -2,6 +2,7 @@
  * Formatting functions for quota display.
  */
 
+import type { QuotaCacheMetadata } from '@/types';
 import type { TFunction } from 'i18next';
 import type { CodexUsageWindow } from '@/types';
 import { normalizeNumberValue } from './parsers';
@@ -35,8 +36,13 @@ export function formatCodexResetLabel(window?: CodexUsageWindow | null): string 
   return '-';
 }
 
-export function createStatusError(message: string, status?: number): Error & { status?: number } {
-  const error = new Error(message) as Error & { status?: number };
+export function createStatusError(
+  message: string,
+  status?: number,
+  quotaCache?: QuotaCacheMetadata
+): Error & { status?: number; quotaCache?: QuotaCacheMetadata } {
+  const error = new Error(message) as Error & { status?: number; quotaCache?: QuotaCacheMetadata };
+  if (quotaCache) error.quotaCache = quotaCache;
   if (status !== undefined) {
     error.status = status;
   }

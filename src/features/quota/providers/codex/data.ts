@@ -6,6 +6,7 @@
 import type { TFunction } from 'i18next';
 import type {
   AuthFileItem,
+  QuotaCacheMetadata,
   CodexAccountCredits,
   CodexRateLimitInfo,
   CodexRateLimitResetCredit,
@@ -50,6 +51,7 @@ type CodexResetCreditsData = {
 };
 
 export type CodexQuotaData = {
+  quotaCache?: QuotaCacheMetadata;
   planType: string | null;
   subscriptionActiveUntil: string | number | null;
   creditBalance: string | null;
@@ -436,7 +438,7 @@ const fetchCodexQuota = async (file: AuthFileItem, t: TFunction): Promise<CodexQ
   ]);
 
   if (result.statusCode < 200 || result.statusCode >= 300) {
-    throw createStatusError(getApiCallErrorMessage(result), result.statusCode);
+    throw createStatusError(getApiCallErrorMessage(result), result.statusCode, result.quotaCache);
   }
 
   const payload = parseCodexUsagePayload(result.body ?? result.bodyText);
@@ -463,6 +465,7 @@ const fetchCodexQuota = async (file: AuthFileItem, t: TFunction): Promise<CodexQ
   const subscriptionActiveUntil = liveSubscriptionActiveUntil ?? subscriptionActiveUntilFromFile;
   const windows = buildCodexQuotaWindows(payload, t);
   return {
+    ...(result.quotaCache ? { quotaCache: result.quotaCache } : {}),
     planType,
     subscriptionActiveUntil,
     creditBalance: accountCredits.balance,
@@ -510,7 +513,7 @@ const consumeCodexRateLimitResetCredit = async (
   });
 
   if (result.statusCode < 200 || result.statusCode >= 300) {
-    throw createStatusError(getApiCallErrorMessage(result), result.statusCode);
+    throw createStatusError(getApiCallErrorMessage(result), result.statusCode, result.quotaCache);
   }
 };
 
@@ -536,6 +539,7 @@ export const CODEX_CONFIG: QuotaProviderData<CodexQuotaState, CodexQuotaData> = 
   }),
   buildSuccessState: (data) => ({
     status: 'success',
+    ...(data.quotaCache ? { quotaCache: data.quotaCache } : {}),
     windows: data.windows,
     planType: data.planType,
     subscriptionActiveUntil: data.subscriptionActiveUntil,
